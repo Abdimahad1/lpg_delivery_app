@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/cart_controller.dart';
+import '../controllers/profile_controller.dart';
 
 // Screens
-import 'customer_orders_screen.dart';
+import 'CustomerNotificationsScreen.dart';
+import 'CustomerCartScreen.dart';
 import 'customer_search_screen.dart';
 import 'home.dart';
 import 'customer_profile_screen.dart';
@@ -18,6 +20,7 @@ class CustomerMainScreen extends StatefulWidget {
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
   int _selectedIndex = 0;
   final CartController _cartController = Get.find();
+  final ProfileController _profileController = Get.find();
 
   late List<Widget> _screens;
 
@@ -27,8 +30,8 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     _screens = [
       CustomerHomeScreen(onTabSelected: (index) => setState(() => _selectedIndex = index)),
       const CustomerSearchScreen(),
-      const CustomerOrdersScreen(), // Cart screen
-      const Center(child: Text("Orders Screen", style: TextStyle(fontSize: 20))),
+      const CustomerCartScreen(),
+      const CustomerNotificationsScreen(),
       const CustomerProfileScreen(),
     ];
   }
@@ -37,7 +40,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFF00),
-      appBar: _selectedIndex == 0 ? _buildHomeAppBar() : null,
+      appBar: _buildDynamicAppBar(),
       body: SafeArea(
         child: IndexedStack(
           index: _selectedIndex,
@@ -48,32 +51,49 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
     );
   }
 
-  PreferredSizeWidget _buildHomeAppBar() {
+  PreferredSizeWidget? _buildDynamicAppBar() {
+    if (_selectedIndex == 0) return null;
+
     return AppBar(
       backgroundColor: const Color(0xFF3E3EFF),
       automaticallyImplyLeading: false,
-      title: const Row(
-        children: [
-          Icon(Icons.location_on, color: Colors.white),
-          SizedBox(width: 6),
-          Text(
-            "Taleex-mog-somalia",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-      actions: [
+      elevation: 0,
+      title: _selectedIndex == 3
+          ? const Text("🔔 Notifications",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+          : Obx(() => SizedBox(
+        width: MediaQuery.of(context).size.width * 0.6, // Limit width
+        child: Row(
+          children: [
+            const Icon(Icons.location_on, color: Colors.white, size: 20),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                _profileController.userAddress.value.isNotEmpty
+                    ? _profileController.userAddress.value
+                    : "No location set",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14, // Smaller font size
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          ],
+        ),
+      )),
+      actions: _selectedIndex == 3
+          ? []
+          : [
         IconButton(
           icon: const Icon(Icons.notifications, color: Colors.white),
-          onPressed: () {
-            // Future notification action
-          },
+          onPressed: () => setState(() => _selectedIndex = 3),
         ),
         IconButton(
           icon: const Icon(Icons.search, color: Colors.white),
-          onPressed: () {
-            setState(() => _selectedIndex = 1);
-          },
+          onPressed: () => setState(() => _selectedIndex = 1),
         ),
       ],
     );
@@ -106,7 +126,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
               setState(() {
                 _selectedIndex = index;
                 if (isCart) {
-                  _screens[2] = const CustomerOrdersScreen(); // refresh cart
+                  _screens[2] = const CustomerCartScreen();
                 }
               });
             },
@@ -131,30 +151,29 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                   ),
                 ),
                 if (isCart)
-                  GetBuilder<CartController>(
-                    builder: (controller) {
-                      if (controller.cartItems.isEmpty) return const SizedBox();
-                      return Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            controller.cartItems.length.toString(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  Obx(() {
+                    final count = _cartController.cartItems.length;
+                    if (count == 0) return const SizedBox();
+                    return Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          count.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  }),
               ],
             ),
           );

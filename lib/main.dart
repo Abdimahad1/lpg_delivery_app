@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 
 // Controllers
+import 'VendorUI/VendorMainScreen.dart';
 import 'controllers/cart_controller.dart';
-import 'controllers/favorites_controller.dart';
+import 'controllers/profile_controller.dart';
+import 'services/http_service.dart'; // Add this import
 
 // Auth Screens
 import 'auth/loading_screen.dart';
@@ -13,10 +16,8 @@ import 'auth/sign_up_screen.dart' as signup;
 // Customer Navigation UI with Bottom Navbar
 import 'customerUI/CustomerMainScreen.dart';
 
-void main() {
-  // Initialize controllers
-  Get.put(CartController());
-  Get.put(FavoritesController());
+Future<void> main() async {
+  await GetStorage.init(); // Initialize GetStorage first
   runApp(const MyApp());
 }
 
@@ -28,18 +29,32 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       title: 'LPG Delivery App',
       debugShowCheckedModeBanner: false,
+      initialBinding: AppBindings(), // Add this line
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,
       ),
-      home: const LoadingScreen(), // Initial loading splash
+      home: const LoadingScreen(),
       getPages: [
         GetPage(name: '/', page: () => const LoadingScreen()),
         GetPage(name: '/login', page: () => login.LoginScreen()),
-        GetPage(name: '/signup', page: () => signup.SignUpScreen()),
+        GetPage(name: '/signup', page: () => signup.SignupScreen()),
         GetPage(name: '/customer-home', page: () => const CustomerMainScreen()),
+        GetPage(name: '/vendor-home', page: () => const VendorMainScreen()),
       ],
     );
+  }
+}
+
+class AppBindings extends Bindings {
+  @override
+  void dependencies() {
+    // Initialize HttpService first as it's used by other controllers
+    Get.lazyPut(() => HttpService(), fenix: true);
+
+    // Then initialize other controllers
+    Get.put(ProfileController(), permanent: true);
+    Get.put(CartController());
   }
 }

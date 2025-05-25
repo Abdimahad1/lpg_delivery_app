@@ -5,14 +5,14 @@ import 'package:latlong2/latlong.dart' as latlng;
 import '../../controllers/profile_controller.dart';
 import '../Location/OSMLocationPickerScreen.dart';
 
-class CustomerProfileScreen extends StatefulWidget {
-  const CustomerProfileScreen({Key? key}) : super(key: key);
+class VendorProfileScreen extends StatefulWidget {
+  const VendorProfileScreen({Key? key}) : super(key: key);
 
   @override
-  State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
+  State<VendorProfileScreen> createState() => _VendorProfileScreenState();
 }
 
-class _CustomerProfileScreenState extends State<CustomerProfileScreen>
+class _VendorProfileScreenState extends State<VendorProfileScreen>
     with SingleTickerProviderStateMixin {
   late final ProfileController controller;
   late TabController _tabController;
@@ -71,9 +71,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey)),
+          Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey)),
           Container(
             decoration: BoxDecoration(
               color: val ? Colors.green : Colors.grey.shade300,
@@ -85,11 +83,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
               onTap: () => controller.toggleNotification(key),
               child: Text(
                 val ? "ON" : "OFF",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
           ),
@@ -130,7 +124,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
             ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
-            Container(
+            Obx(() => Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 25),
               decoration: const BoxDecoration(
@@ -144,15 +138,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     children: [
                       GestureDetector(
                         onTap: controller.uploadImage,
-                        child: Obx(() => CircleAvatar(
+                        child: CircleAvatar(
                           radius: 50,
                           backgroundImage: controller.profileImage != null
                               ? FileImage(controller.profileImage!)
                               : controller.profileImageUrl.value.isNotEmpty
                               ? NetworkImage(controller.profileImageUrl.value)
-                              : const AssetImage("assets/images/user.png")
-                          as ImageProvider,
-                        )),
+                              : const AssetImage("assets/images/user.png") as ImageProvider,
+                        ),
                       ),
                       Positioned(
                         bottom: 4,
@@ -175,18 +168,15 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Obx(() => Text(
+                  Text(
                     controller.userName.value.isEmpty
                         ? "Your Name"
                         : controller.userName.value,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold),
-                  )),
+                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
-            ),
+            )),
 
             TabBar(
               controller: _tabController,
@@ -205,7 +195,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Account Tab
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: SingleChildScrollView(
@@ -215,26 +204,22 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                           _buildTextField("Phone", controller.phoneController),
                           _buildTextField("Address", controller.addressController, isAddress: true),
                           _buildTextField("Email", controller.emailController),
+                          _buildTextField("Shop Name", controller.shopNameController),
                           const SizedBox(height: 20),
                           ElevatedButton(
                             onPressed: controller.updateProfile,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF3E3EFF),
                               padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(25)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                             ),
-                            child: const Text("Update",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white)),
+                            child: const Text("Update", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  // Notification Tab
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
@@ -249,7 +234,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                     ),
                   ),
 
-                  // Log Out Tab
                   Center(
                     child: ElevatedButton.icon(
                       onPressed: _showLogoutDialog,

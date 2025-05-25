@@ -1,67 +1,214 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart' as latlng;
+import '../config/api_config.dart';
 import '../controllers/cart_controller.dart';
-import '../controllers/favorites_controller.dart';
+import '../controllers/profile_controller.dart';
 import 'ProductDetailScreen.dart';
 
-class CustomerHomeScreen extends StatelessWidget {
-  final Function(int)? onTabSelected; // Passed from main screen for tab switching
+class CustomerHomeScreen extends StatefulWidget {
+  final Function(int)? onTabSelected;
 
   const CustomerHomeScreen({super.key, this.onTabSelected});
 
   @override
+  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+}
+
+class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  final ProfileController profileController = Get.find<ProfileController>();
+  final CartController cartController = Get.find<CartController>();
+
+  List<Map<String, dynamic>> _randomProducts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _fetchRandomProducts();
+    print('Calling fetchNearbyVendors...'); // Debugging statement
+    profileController.fetchNearbyVendors();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchRandomProducts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/products/random?limit=7'),
+        headers: {'Authorization': 'Bearer ${profileController.authToken}'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _randomProducts = List<Map<String, dynamic>>.from(data['data']);
+        });
+      }
+    } catch (e) {
+      print('Error fetching random products: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _onSearchChanged() {
+    // Implement search functionality if needed
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFF00),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ✅ Top bar is handled by CustomerMainScreen
+      backgroundColor: const Color(0xFFFFF1F5),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+        children: [
+          // Search Bar
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.search, color: Colors.grey),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration.collapsed(
+                      hintText: "Search gas products and vendors...",
+                      hintStyle: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ),
+                if (_searchController.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      _searchController.clear();
+                    },
+                  ),
+              ],
+            ),
+          ),
 
-            Expanded(
+          // Location Chip
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Obx(() => GestureDetector(
+              onTap: () => widget.onTabSelected?.call(4),
               child: Container(
-                padding: const EdgeInsets.all(16),
-                color: const Color(0xFFFFF1F5),
-                child: SingleChildScrollView(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: Chip(
+                  backgroundColor: const Color(0xFF3E3EFF),
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  label: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          profileController.userAddress.value.isNotEmpty
+                              ? profileController.userAddress.value
+                              : "Set your location",
+                          style: const TextStyle(color: Colors.white),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.edit, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            )),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Main Content
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: MediaQuery.of(context).size.height,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Vendors Section
                       _buildSectionHeader("Vendors Near You", "View more"),
                       const SizedBox(height: 12),
-                      const Row(
-                        children: [
-                          Expanded(
-                            child: VendorCard(
-                              name: "HASS GAS",
-                              imagePath: "assets/images/vendor.png",
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: VendorCard(
-                              name: "HASS GAS",
-                              imagePath: "assets/images/vendor.png",
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 25),
+                      Obx(() {
+                        final vendors = profileController.nearbyVendors;
 
-                      // Quick Actions
+                        if (profileController.isLoading.value) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        if (profileController.vendorFetchError.isNotEmpty) {
+                          return Center(
+                            child: Text(
+                              'Error: ${profileController.vendorFetchError.value}',
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          );
+                        }
+
+                        if (vendors.isEmpty) {
+                          return const Center(child: Text('No vendors found nearby'));
+                        }
+
+                        return SizedBox(
+                          height: 160,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: vendors.length.clamp(0, 3), // only show up to 3
+                            itemBuilder: (context, index) {
+                              final vendor = vendors[index];
+                              return VendorCard(
+                                name: vendor['shopName'] ?? vendor['name'] ?? 'Vendor',
+                                imagePath: vendor['profileImage'] ?? 'assets/images/vendor.png',
+                                location: vendor['address'] ?? 'No location',
+                                vendorId: vendor['userId'],
+                              );
+                            },
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 25),
                       _buildSectionHeader("Getting Started Today", ""),
                       const SizedBox(height: 12),
                       GridView.count(
                         crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
+                        childAspectRatio: 1.0,  // Square cards
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
                         children: [
                           QuickActionCard(
                             icon: Icons.propane_tank,
                             label: "Buy Cooking Gas",
-                            onTap: () => onTabSelected?.call(1),
+                            onTap: () => widget.onTabSelected?.call(1),
                           ),
                           const QuickActionCard(
                             icon: Icons.location_on,
@@ -74,36 +221,56 @@ class CustomerHomeScreen extends StatelessWidget {
                           QuickActionCard(
                             icon: Icons.person,
                             label: "My profile",
-                            onTap: () => onTabSelected?.call(4),
+                            onTap: () => widget.onTabSelected?.call(4),
                           ),
                         ],
                       ),
                       const SizedBox(height: 25),
-
-                      // Products Section
                       _buildSectionHeader("Products", ""),
                       const SizedBox(height: 12),
-                      ProductCard(
-                        title: "6kg Cooking Gas Cylinder",
-                        location: "Taleex-mog-somalia",
-                        price: 24,
-                        imagePath: "assets/images/cylinder.png",
-                        description: "6kg cylinder is a wonderful Gas which will hold you 1 month and 5 days",
-                      ),
-                      ProductCard(
-                        title: "12kg Cooking Gas Cylinder",
-                        location: "Bakara-Mogadishu",
-                        price: 38,
-                        imagePath: "assets/images/cylinder.png",
-                        description: "Premium 12kg cylinder for larger families or commercial use",
+                      _randomProducts.isEmpty
+                          ? const Center(
+                        child: Text("No products found",
+                            style: TextStyle(color: Colors.grey)),
+                      )
+                          : ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _randomProducts.length,
+                        separatorBuilder: (context, index) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final product = _randomProducts[index];
+                          return ProductCard(
+                            title: product['name'],
+                            description: product['description'] ?? 'No description',
+                            vendorName: product['vendorName'] ?? 'Unknown Vendor',
+                            location: product['vendorAddress'] ?? '',
+                            price: product['price']?.toDouble() ?? 0.0,
+                            imagePath: product['image'] ?? 'assets/images/cylinder.png',
+                            productId: product['_id'],
+                            vendorId: product['vendorId'],
+                            onTap: () {
+                              Get.to(() => ProductDetailScreen(
+                                title: product['name'],
+                                price: product['price']?.toDouble() ?? 0.0,
+                                location: product['vendorAddress'] ?? '',
+                                description: product['description'] ?? 'No description',
+                                imagePath: product['image'] ?? 'assets/images/cylinder.png',
+                                vendorName: product['vendorName'] ?? 'Unknown Vendor',
+                                productId: product['_id'],
+                                vendorId: product['vendorId'],
+                              ));
+                            },
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -118,47 +285,91 @@ class CustomerHomeScreen extends StatelessWidget {
       ],
     );
   }
+
+  Widget _buildErrorImage() {
+    return Container(
+      width: 60,
+      height: 60,
+      color: Colors.grey[200],
+      child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+    );
+  }
 }
 
-// Vendor Card Widget
 class VendorCard extends StatelessWidget {
   final String name;
   final String imagePath;
+  final String location;
+  final String vendorId;
 
-  const VendorCard({super.key, required this.name, required this.imagePath});
+  const VendorCard({
+    super.key,
+    required this.name,
+    required this.imagePath,
+    required this.location,
+    required this.vendorId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 150,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset(imagePath, height: 60),
-          const SizedBox(height: 8),
-          Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.location_pin, size: 16, color: Colors.red),
-              SizedBox(width: 4),
-              Text("Digfeer-Mog", style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          )
-        ],
+    return GestureDetector(
+      onTap: () {
+        // Navigate to vendor details screen if needed
+      },
+      child: Container(
+        width: 150,  // Fixed width
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: imagePath.startsWith('http')
+                  ? NetworkImage(imagePath)
+                  : AssetImage(imagePath) as ImageProvider,
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                name,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.location_pin, size: 16, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      location,
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// Quick Action Card Widget
 class QuickActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -176,6 +387,10 @@ class QuickActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        constraints: const BoxConstraints(
+          minWidth: 100,
+          minHeight: 100,
+        ),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -187,7 +402,13 @@ class QuickActionCard extends StatelessWidget {
           children: [
             Icon(icon, color: Colors.red, size: 35),
             const SizedBox(height: 10),
-            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),
@@ -195,50 +416,34 @@ class QuickActionCard extends StatelessWidget {
   }
 }
 
-// Product Card Widget
 class ProductCard extends StatelessWidget {
   final String title;
+  final String description;
+  final String vendorName;
   final String location;
   final double price;
   final String imagePath;
-  final String description;
-
-  final CartController cartController = Get.find();
-  final FavoritesController favoritesController = Get.find();
+  final String productId;
+  final String vendorId;
+  final VoidCallback? onTap;
 
   ProductCard({
     super.key,
     required this.title,
+    required this.description,
+    required this.vendorName,
     required this.location,
     required this.price,
     required this.imagePath,
-    required this.description,
+    required this.productId,
+    required this.vendorId,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final item = FavoriteItem(
-      title: title,
-      price: price,
-      location: location,
-      imagePath: imagePath,
-    );
-
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailScreen(
-              title: title,
-              price: price,
-              location: location,
-              imagePath: imagePath,
-              description: description,
-            ),
-          ),
-        );
-      },
+      onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
@@ -249,51 +454,85 @@ class ProductCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Image.asset(imagePath, width: 50, height: 50),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: _buildProductImage(imagePath),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(vendorName,
+                      style: const TextStyle(fontSize: 12, color: Colors.blue)),
+                  if (description.isNotEmpty)
+                    Text(description,
+                        style: const TextStyle(fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   Row(
                     children: [
                       const Icon(Icons.location_pin, size: 14, color: Colors.red),
                       const SizedBox(width: 4),
-                      Text(location, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Flexible(
+                        child: Text(
+                          location,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
                     ],
                   )
                 ],
               ),
             ),
-            Column(
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.shopping_cart_outlined, size: 20),
-                      onPressed: () {
-                        cartController.addToCart(CartItem(
-                          title: title,
-                          price: price,
-                          location: location,
-                          imagePath: imagePath,
-                        ));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$title added to cart')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text("Price:  \$${price.toStringAsFixed(2)}",
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            )
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProductImage(String imagePath) {
+    try {
+      if (imagePath.startsWith('http')) {
+        return Image.network(
+          imagePath,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
+        );
+      } else if (imagePath.startsWith('data:image')) {
+        return Image.memory(
+          base64.decode(imagePath.split(',').last),
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
+        );
+      } else if (imagePath.isNotEmpty) {
+        return Image.asset(
+          imagePath,
+          width: 60,
+          height: 60,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
+        );
+      }
+      return _buildErrorImage();
+    } catch (e) {
+      return _buildErrorImage();
+    }
+  }
+
+  Widget _buildErrorImage() {
+    return Container(
+      width: 60,
+      height: 60,
+      color: Colors.grey[200],
+      child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
     );
   }
 }

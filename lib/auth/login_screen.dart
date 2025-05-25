@@ -11,6 +11,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final LoginController controller = Get.put(LoginController());
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -49,55 +50,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Colors.pink[50],
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      "LOG IN",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 20),
-                    _buildRoleDropdown(),
-                    const SizedBox(height: 15),
-                    _buildInputField(controller.emailController, "Enter your Email"),
-                    const SizedBox(height: 15),
-                    _buildInputField(controller.passwordController, "Enter your Password", obscure: true),
-                    const SizedBox(height: 20),
-                    Obx(() => controller.isLoading.value
-                        ? const Center(child: CircularProgressIndicator())
-                        : ElevatedButton(
-                      onPressed: () async {
-                        FocusScope.of(context).unfocus();
-                        await controller.loginUser();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        "LOG IN",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold),
                       ),
-                      child: const Text("LOGIN", style: TextStyle(color: Colors.white)),
-                    )),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          Get.toNamed('/signup');
-                        },
-                        child: const Text.rich(
-                          TextSpan(
-                            text: "Don't have an account? ",
-                            children: [
-                              TextSpan(
-                                text: "SIGN UP",
-                                style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  ],
+                      const SizedBox(height: 20),
+                      _buildRoleDropdown(),
+                      const SizedBox(height: 15),
+                      _buildEmailField(),
+                      const SizedBox(height: 15),
+                      _buildPasswordField(),
+                      const SizedBox(height: 20),
+                      Obx(() => controller.isLoading.value
+                          ? const Center(child: CircularProgressIndicator())
+                          : _buildLoginButton()),
+                      const SizedBox(height: 16),
+                      _buildSignUpText(),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -107,43 +85,131 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, String hint, {bool obscure = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 2))],
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: controller.emailController,
+      keyboardType: TextInputType.emailAddress,
+      decoration: InputDecoration(
+        hintText: "Enter your Email",
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        decoration: InputDecoration(hintText: hint, border: InputBorder.none),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
+        }
+        if (!value.contains('@')) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: controller.passwordController,
+      obscureText: true,
+      decoration: InputDecoration(
+        hintText: "Enter your Password",
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your password';
+        }
+        if (value.length < 6) {
+          return 'Password must be at least 6 characters';
+        }
+        return null;
+      },
+    );
+  }
+
+
+  Widget _buildRoleDropdown() {
+    return Obx(() => DropdownButtonFormField<String>(
+      value: controller.selectedRole.value.isEmpty ? null : controller.selectedRole.value,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15),
+      ),
+      hint: const Text("Select Role"),
+      items: const [
+        DropdownMenuItem(value: "Customer", child: Text("Customer")),
+        DropdownMenuItem(value: "Vendor", child: Text("Vendor")),
+        DropdownMenuItem(value: "DeliveryPerson", child: Text("Delivery Person")),
+      ],
+      onChanged: (value) {
+        controller.selectedRole.value = value!;
+      },
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please select a role';
+        }
+        return null;
+      },
+    ));
+  }
+
+  Widget _buildLoginButton() {
+    return ElevatedButton(
+      onPressed: () async {
+        FocusScope.of(context).unfocus();
+        if (_formKey.currentState!.validate()) {
+          await controller.loginUser();
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blueAccent,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30)),
+      ),
+      child: const Text(
+        "LOGIN",
+        style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  Widget _buildRoleDropdown() {
-    return Obx(() => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 5, offset: const Offset(0, 2))],
+  Widget _buildSignUpText() {
+    return Center(
+      child: GestureDetector(
+        onTap: () => Get.toNamed('/signup'),
+        child: const Text.rich(
+          TextSpan(
+            text: "Don't have an account? ",
+            children: [
+              TextSpan(
+                text: "SIGN UP",
+                style: TextStyle(
+                    color: Colors.blueAccent,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: DropdownButtonFormField<String>(
-        value: controller.selectedRole.value.isEmpty ? null : controller.selectedRole.value,
-        decoration: const InputDecoration(border: InputBorder.none),
-        hint: const Text("Role"),
-        items: const [
-          DropdownMenuItem(value: "Customer", child: Text("Customer")),
-          DropdownMenuItem(value: "Vendor", child: Text("Vendor")),
-          DropdownMenuItem(value: "DeliveryPerson", child: Text("Delivery Person")),
-        ],
-        onChanged: (value) {
-          controller.selectedRole.value = value!;
-        },
-      ),
-    ));
+    );
   }
 }

@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 import '../controllers/cart_controller.dart';
+import '../controllers/profile_controller.dart';
 import 'ProductDetailScreen.dart';
 
 class CustomerSearchScreen extends StatefulWidget {
@@ -13,151 +17,172 @@ class CustomerSearchScreen extends StatefulWidget {
 class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final CartController _cartController = Get.find();
-  final List<Map<String, dynamic>> _allProducts = [
-    {
-      'title': '6kg Cooking Gas Cylinder',
-      'location': 'Taleex-mog-somalia',
-      'price': 24.0,
-      'imagePath': 'assets/images/cylinder.png',
-      'description': '6kg cylinder is a wonderful Gas which will hold you 1 month and 5 days',
-    },
-    {
-      'title': '12kg Gas Cylinder - Deluxe',
-      'location': 'Bakara-Mogadishu',
-      'price': 38.0,
-      'imagePath': 'assets/images/cylinder.png',
-      'description': 'Premium 12kg cylinder for larger families or commercial use',
-    },
-    {
-      'title': '3kg Mini Cooking Cylinder',
-      'location': 'Hodan-Mogadishu',
-      'price': 18.0,
-      'imagePath': 'assets/images/cylinder.png',
-      'description': 'Compact 3kg cylinder perfect for small households or camping',
-    },
-    {
-      'title': 'Refill - 6kg Cylinder',
-      'location': 'Taleex-mog-somalia',
-      'price': 12.0,
-      'imagePath': 'assets/images/cylinder.png',
-      'description': 'Gas refill service for your existing 6kg cylinder',
-    },
-  ];
+  final ProfileController _profileController = Get.find();
 
+  List<Map<String, dynamic>> _allProducts = [];
   List<Map<String, dynamic>> _filteredProducts = [];
+  List<String> _vendors = [];
+
+  String _selectedVendor = 'All';
+  String _sortOption = 'Default';
+
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredProducts = _allProducts;
     _searchController.addListener(_onSearchChanged);
+    _fetchAllProducts();
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  Future<void> _fetchAllProducts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/products/all'),
+        headers: {
+          'Authorization': 'Bearer ${_profileController.authToken}'
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final List data = body['data'];
+
+        final products = data.map<Map<String, dynamic>>((item) {
+          return {
+            'title': item['name'],
+            'price': item['price'].toDouble(),
+            'description': item['description'] ?? '',
+            'imagePath': item['image'],
+            'location': item['vendorAddress'] ?? '',
+            'vendorName': item['vendorName'] ?? '',
+            'productId': item['_id'],
+            'vendorId': item['vendorId'],
+          };
+        }).toList();
+
+        final vendors = {'All', ...products.map((e) => e['vendorName'] as String)};
+
+        setState(() {
+          _allProducts = products;
+          _filteredProducts = products;
+          _vendors = vendors.toList();
+        });
+      } else {
+        print("❌ Failed to fetch products: ${response.statusCode}");
+      }
+    } catch (e) {
+      print('❌ Error fetching all products: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _onSearchChanged() {
+    _applyFilters();
+  }
+
+  void _applyFilters() {
     final query = _searchController.text.toLowerCase();
+
+    List<Map<String, dynamic>> results = _allProducts.where((product) {
+      final title = product['title'].toLowerCase();
+      final location = product['location'].toLowerCase();
+      final vendor = product['vendorName'];
+
+      final matchesSearch = title.contains(query) || location.contains(query);
+      final matchesVendor = _selectedVendor == 'All' || vendor == _selectedVendor;
+
+      return matchesSearch && matchesVendor;
+    }).toList();
+
+    if (_sortOption == 'Price ↑') {
+      results.sort((a, b) => a['price'].compareTo(b['price']));
+    } else if (_sortOption == 'Price ↓') {
+      results.sort((a, b) => b['price'].compareTo(a['price']));
+    } else if (_sortOption == 'A-Z') {
+      results.sort((a, b) => a['title'].compareTo(b['title']));
+    } else if (_sortOption == 'Z-A') {
+      results.sort((a, b) => b['title'].compareTo(a['title']));
+    }
+
     setState(() {
-      _filteredProducts = _allProducts.where((product) {
-        final title = product['title'].toLowerCase();
-        final location = product['location'].toLowerCase();
-        return title.contains(query) || location.contains(query);
-      }).toList();
+      _filteredProducts = results;
     });
-  }
-
-  void _addToCart(Map<String, dynamic> product) {
-    _cartController.addToCart(CartItem(
-      title: product['title'],
-      price: product['price'],
-      location: product['location'],
-      imagePath: product['imagePath'],
-    ));
-
-    ScaffoldMessenger.of(Get.context!).showSnackBar(
-      SnackBar(
-        content: Text('${product['title']} added to cart'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
-  }
-
-  void _navigateToProductDetail(Map<String, dynamic> product) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProductDetailScreen(
-          title: product['title'],
-          price: product['price'],
-          location: product['location'],
-          description: product['description'],
-          imagePath: product['imagePath'],
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFF00),
+      backgroundColor: const Color(0xFFFFF1F5),
       body: Column(
         children: [
-          // Header with Search (cart icon removed)
+          // Search Bar
           Container(
-            color: const Color(0xFF3E3EFF),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+            ),
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: const [
-                    Icon(Icons.location_on, color: Colors.white),
-                    SizedBox(width: 6),
-                    Text(
-                      "Taleex-mog-somalia",
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                const Icon(Icons.search, color: Colors.grey),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration.collapsed(
+                      hintText: "Search gas products...",
+                      hintStyle: TextStyle(color: Colors.grey),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // Search Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search, color: Colors.grey),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: const InputDecoration.collapsed(
-                            hintText: "Search gas products...",
-                            hintStyle: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                      ),
-                      if (_searchController.text.isNotEmpty)
-                        IconButton(
-                          icon: const Icon(Icons.clear, size: 20),
-                          onPressed: () {
-                            _searchController.clear();
-                          },
-                        ),
-                    ],
+                ),
+                if (_searchController.text.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () => _searchController.clear(),
+                  ),
+              ],
+            ),
+          ),
+
+          // Filters
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _sortOption,
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    items: ['Default', 'Price ↑', 'Price ↓', 'A-Z', 'Z-A']
+                        .map((label) => DropdownMenuItem(
+                      value: label,
+                      child: Text(label),
+                    ))
+                        .toList(),
+                    onChanged: (value) {
+                      _sortOption = value!;
+                      _applyFilters();
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedVendor,
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    items: _vendors
+                        .map((v) => DropdownMenuItem(
+                      value: v,
+                      child: Text(v, overflow: TextOverflow.ellipsis),
+                    ))
+                        .toList(),
+                    onChanged: (value) {
+                      _selectedVendor = value!;
+                      _applyFilters();
+                    },
                   ),
                 ),
               ],
@@ -166,28 +191,27 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
 
           // Product List
           Expanded(
-            child: Container(
-              color: const Color(0xFFFFF1F5),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: _filteredProducts.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.search_off, size: 50, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text("No products found", style: TextStyle(fontSize: 18, color: Colors.grey)),
-                    Text("Try a different search term", style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  ],
-                ),
-              )
-                  : ListView.builder(
-                itemCount: _filteredProducts.length,
-                itemBuilder: (context, index) {
-                  final product = _filteredProducts[index];
-                  return _buildProductCard(product);
-                },
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredProducts.isEmpty
+                ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 50, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text("No products found", style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  Text("Try a different search term", style: TextStyle(fontSize: 14, color: Colors.grey)),
+                ],
               ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _filteredProducts.length,
+              itemBuilder: (context, index) {
+                final product = _filteredProducts[index];
+                return _buildProductCard(product);
+              },
             ),
           ),
         ],
@@ -201,22 +225,26 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       elevation: 3,
       child: InkWell(
-        onTap: () => _navigateToProductDetail(product),
         borderRadius: BorderRadius.circular(15),
+        onTap: () {
+          Get.to(() => ProductDetailScreen(
+            title: product['title'],
+            price: product['price'],
+            location: product['location'],
+            description: product['description'],
+            imagePath: product['imagePath'],
+            vendorName: product['vendorName'],
+            productId: product['productId'],
+            vendorId: product['vendorId'],
+          ));
+        },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  image: DecorationImage(
-                    image: AssetImage(product['imagePath']),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: buildUniversalImage(product['imagePath'], width: 70, height: 70),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -229,25 +257,15 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
                       children: [
                         const Icon(Icons.location_on, size: 14, color: Colors.red),
                         const SizedBox(width: 4),
-                        Text(product['location'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        Expanded(
+                          child: Text(product['location'], style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      "\$${product['price'].toStringAsFixed(2)}",
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
-                    ),
+                    Text("\$${product['price'].toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
                   ],
                 ),
-              ),
-              Column(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.add_shopping_cart),
-                    color: Colors.red,
-                    onPressed: () => _addToCart(product),
-                  ),
-                ],
               ),
             ],
           ),
@@ -255,4 +273,29 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
       ),
     );
   }
+}
+
+// Utility image renderer
+Widget buildUniversalImage(String imagePath, {double? width, double? height}) {
+  try {
+    if (imagePath.startsWith('http')) {
+      return Image.network(imagePath, width: width, height: height, fit: BoxFit.cover);
+    } else if (imagePath.startsWith('data:image')) {
+      final bytes = base64.decode(imagePath.split(',').last);
+      return Image.memory(bytes, width: width, height: height, fit: BoxFit.cover);
+    } else {
+      return Image.asset(imagePath, width: width, height: height, fit: BoxFit.cover);
+    }
+  } catch (_) {
+    return _buildErrorImage(width, height);
+  }
+}
+
+Widget _buildErrorImage(double? width, double? height) {
+  return Container(
+    width: width ?? 70,
+    height: height ?? 70,
+    color: Colors.grey[200],
+    child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+  );
 }
