@@ -42,7 +42,7 @@ class PayScreen extends StatelessWidget {
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
-                color: Colors.yellow, // White background for card area
+                color: Colors.white38, // White background for card area
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(40),
                   topRight: Radius.circular(40),

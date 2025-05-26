@@ -35,10 +35,8 @@ class ProfileController extends GetxController {
   String get authToken => _authToken.value;
   RxString get rxAuthToken => _authToken;
 
-
   final RxDouble latitude = 0.0.obs;
   final RxDouble longitude = 0.0.obs;
-
 
   final Rx<latlng.LatLng?> selectedLocation = Rx<latlng.LatLng?>(null);
   final RxString selectedAddress = "".obs;
@@ -49,12 +47,8 @@ class ProfileController extends GetxController {
     "sms": true,
   }.obs;
 
-  // Add this for cart persistence
   final RxBool isCartInitialized = false.obs;
-
-  // Observable list for nearby vendors
   final RxList<Map<String, dynamic>> nearbyVendors = <Map<String, dynamic>>[].obs;
-
   final RxString vendorFetchError = ''.obs;
 
   @override
@@ -65,10 +59,7 @@ class ProfileController extends GetxController {
 
   Future<void> _loadTokenAndFetchProfile() async {
     try {
-      // Try secure storage first
       final token = await storage.read(key: 'authToken');
-
-      // Fallback to shared preferences if not found
       if (token == null || token.isEmpty) {
         final prefs = await SharedPreferences.getInstance();
         final fallbackToken = prefs.getString('authToken');
@@ -76,12 +67,10 @@ class ProfileController extends GetxController {
           await storage.write(key: 'authToken', value: fallbackToken);
         }
       }
-
       final finalToken = await storage.read(key: 'authToken');
       if (finalToken != null && finalToken.isNotEmpty) {
         _authToken.value = finalToken;
         fetchProfile();
-        // Notify cart controller to initialize
         isCartInitialized.value = true;
       }
     } catch (e) {
@@ -92,20 +81,16 @@ class ProfileController extends GetxController {
   Future<void> setAuthToken(String token) async {
     _authToken.value = token;
     await storage.write(key: 'authToken', value: token);
-    // Also store in shared preferences as fallback
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('authToken', token);
-    // Notify cart controller to initialize
     isCartInitialized.value = true;
   }
 
   Future<void> clearAuthToken() async {
     _authToken.value = '';
     await storage.delete(key: 'authToken');
-    // Also remove from shared preferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('authToken');
-    // Notify cart controller to clear
     isCartInitialized.value = false;
   }
 
@@ -128,8 +113,7 @@ class ProfileController extends GetxController {
 
     isLoading.value = true;
     try {
-      final res = await httpService.get('api/profile');
-
+      final res = await httpService.get('profile');
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true) {
@@ -169,6 +153,9 @@ class ProfileController extends GetxController {
       "inApp": notif['inApp'] ?? true,
       "sms": notif['sms'] ?? true,
     });
+
+    selectedLocation.value = latlng.LatLng(latitude.value, longitude.value);
+    selectedAddress.value = userAddress.value;
   }
 
   Future<void> updateProfile() async {
@@ -179,10 +166,14 @@ class ProfileController extends GetxController {
 
     isLoading.value = true;
     try {
+      final fullAddress = addressController.text.trim();
+      final district = fullAddress.split(',').first.trim();
+
       final body = {
         'name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
-        'address': addressController.text.trim(),
+        'address': fullAddress,
+        'district': district,
         'coordinates': {
           'lat': latitude.value,
           'lng': longitude.value,
@@ -192,12 +183,14 @@ class ProfileController extends GetxController {
         'notifications': notifications,
       };
 
-      final res = await httpService.put('api/profile', body: body);
+      final res = await httpService.put('profile', body: body);
       final json = jsonDecode(res.body);
 
       if (res.statusCode == 200 && json['success'] == true) {
         userName.value = nameController.text.trim();
-        userAddress.value = addressController.text.trim();
+        userAddress.value = fullAddress;
+        selectedAddress.value = fullAddress;
+        selectedLocation.value = latlng.LatLng(latitude.value, longitude.value);
         showSnackbar("Success", "Profile updated successfully", isError: false);
       } else {
         showSnackbar("Error", json['message'] ?? "Update failed");
@@ -221,30 +214,23 @@ class ProfileController extends GetxController {
     isLoading.value = true;
     try {
       final response = await httpService.multipartRequest(
-        'api/profile/upload',
+        'profile/upload',
         method: 'POST',
         fields: {},
         fileField: 'image',
         filePath: picked.path,
       );
 
-      // Get the response as bytes first
       final responseBytes = await response.stream.toBytes();
-      // Convert to string
       final responseString = utf8.decode(responseBytes);
-      // Parse the JSON
       final json = jsonDecode(responseString);
 
-      if (response.statusCode == 200) {
-        if (json['success'] == true) {
-          profileImage = File(picked.path);
-          profileImageUrl.value = json['imageUrl'];
-          showSnackbar("Success", "Image uploaded", isError: false);
-        } else {
-          showSnackbar("Error", json['message'] ?? "Upload failed");
-        }
+      if (response.statusCode == 200 && json['success'] == true) {
+        profileImage = File(picked.path);
+        profileImageUrl.value = json['imageUrl'];
+        showSnackbar("Success", "Image uploaded", isError: false);
       } else {
-        showSnackbar("Error", "Image upload failed");
+        showSnackbar("Error", json['message'] ?? "Upload failed");
       }
     } catch (e) {
       showSnackbar("Error", "Something went wrong: $e");
@@ -280,27 +266,20 @@ class ProfileController extends GetxController {
 
   Future<void> fetchNearbyVendors() async {
     try {
-      print('Fetching nearby vendors...'); // Debugging statement
-      vendorFetchError.value = ''; // Reset error message
+      vendorFetchError.value = '';
       final response = await http.get(
-        Uri.parse('$baseUrl/api/profile/nearby'), // ✅ correct route
+        Uri.parse('${baseUrl}profile/nearby'),
         headers: {'Authorization': 'Bearer $authToken'},
       );
 
-
-      print('Response status: ${response.statusCode}'); // Debugging statement
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('Fetched vendors: ${data['data']}'); // Debugging statement
         nearbyVendors.assignAll(List<Map<String, dynamic>>.from(data['data']));
       } else {
-        vendorFetchError.value = 'Failed to fetch vendors: ${response.body}'; // Set error message
-        print('Failed to fetch vendors: ${response.body}'); // Debugging statement
+        vendorFetchError.value = 'Failed to fetch vendors: ${response.body}';
       }
     } catch (e) {
-      vendorFetchError.value = 'Error fetching nearby vendors: $e'; // Set error message
-      print('Error fetching nearby vendors: $e'); // Debugging statement
+      vendorFetchError.value = 'Error fetching nearby vendors: $e';
     }
   }
 
@@ -309,7 +288,9 @@ class ProfileController extends GetxController {
     selectedAddress.value = address;
     addressController.text = address;
     userAddress.value = address;
-    fetchNearbyVendors(); // Call the new method
+    latitude.value = lat;
+    longitude.value = lng;
+    fetchNearbyVendors();
   }
 
   @override

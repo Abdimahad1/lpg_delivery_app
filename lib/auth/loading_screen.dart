@@ -58,7 +58,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
           const SizedBox(height: 100),
           const Center(
             child: Text(
-              'LGP DELIVERY',
+              'LPG DELIVERY',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -105,7 +105,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
             child: Column(
               children: [
                 const Text(
-                  'LGP Needs Your Location',
+                  'LPG Needs Your Location',
                   style: TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 8),

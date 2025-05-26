@@ -1,4 +1,3 @@
-// login_controller.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -74,37 +73,6 @@ class LoginController extends GetxController {
     await box.write('pendingLogins', pendingLogins);
   }
 
-  Future<void> _syncPendingLogins() async {
-    if (!isOnline.value) return;
-
-    final pendingLogins = box.read('pendingLogins') ?? [];
-    if (pendingLogins.isEmpty) return;
-
-    for (var loginData in pendingLogins) {
-      if (loginData['synced'] == true) continue;
-
-      try {
-        final response = await http.post(
-          Uri.parse("$baseUrl/api/auth/login"),
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode(loginData),
-        ).timeout(apiTimeout);
-
-        if (response.statusCode == 200) {
-          loginData['synced'] = true;
-          await box.write('pendingLogins', pendingLogins);
-          _handleSuccessfulLogin(jsonDecode(response.body));
-        }
-      } catch (e) {
-        print("Failed to sync login: $e");
-      }
-    }
-
-    // Remove synced logins
-    final remainingLogins = pendingLogins.where((l) => l['synced'] == false).toList();
-    await box.write('pendingLogins', remainingLogins);
-  }
-
   Future<void> loginUser() async {
     if (selectedRole.value.isEmpty) {
       _showSnackbar("Error", "Please select a role");
@@ -121,7 +89,6 @@ class LoginController extends GetxController {
       return;
     }
 
-    // Check internet connection before proceeding
     await _checkInternetConnection();
     if (!isOnline.value) {
       _showSnackbar("Network Error", "No internet connection", isError: true);
@@ -130,19 +97,32 @@ class LoginController extends GetxController {
 
     isLoading.value = true;
 
+    final uri = Uri.parse("${baseUrl}auth/login");
+    final payload = {
+      "email": emailController.text.trim(),
+      "password": passwordController.text.trim(),
+      "role": selectedRole.value,
+    };
+
+    print("📡 baseUrl: $baseUrl");
+    print("📡 Attempting login...");
+    print("➡️ POST: $uri");
+    print("📦 Payload: $payload");
+
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/api/auth/login"),
+      final response = await http
+          .post(
+        uri,
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
         },
-        body: jsonEncode({
-          "email": emailController.text.trim(),
-          "password": passwordController.text.trim(),
-          "role": selectedRole.value,
-        }),
-      ).timeout(const Duration(seconds: 10));
+        body: jsonEncode(payload),
+      )
+          .timeout(const Duration(seconds: 10));
+
+      print("⬅️ Status: ${response.statusCode}");
+      print("⬅️ Body: ${response.body}");
 
       final responseBody = json.decode(utf8.decode(response.bodyBytes));
 
@@ -154,56 +134,31 @@ class LoginController extends GetxController {
         _handleSuccessfulLogin(responseBody);
       } else {
         _showSnackbar(
-            "Login Failed",
-            responseBody['message'] ?? "Invalid credentials",
-            isError: true
+          "Login Failed",
+          responseBody['message'] ?? "Invalid credentials",
+          isError: true,
         );
       }
-    } on SocketException {
+    } on SocketException catch (e) {
       _showSnackbar("Network Error", "No internet connection", isError: true);
-    } on TimeoutException {
+      print("❌ SocketException: $e");
+    } on TimeoutException catch (e) {
       _showSnackbar("Timeout", "Server took too long to respond", isError: true);
-    } catch (e) {
+      print("❌ TimeoutException: $e");
+    } catch (e, stack) {
       _showSnackbar("Error", "An unexpected error occurred", isError: true);
-      print("Login error: $e");
+      print("❌ Unexpected Exception: $e");
+      print("🪵 Stack Trace:\n$stack");
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> _handleOfflineLogin() async {
-    // Check if credentials match any locally stored user
-    final localUsers = box.read('localUsers') ?? [];
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
-    final role = _formatRole(selectedRole.value);
-
-    final user = localUsers.firstWhere(
-          (u) => u['email'] == email && u['role'] == role,
-      orElse: () => null,
-    );
-
-    if (user != null) {
-      // In a real app, you'd want to use proper password hashing here
-      if (user['password'] == password) {
-        _showSnackbar("Offline Mode", "Logged in offline", isError: false);
-        Get.offAllNamed('/offline-home'); // You'll need to create this route
-        return;
-      } else {
-        _showSnackbar("Error", "Invalid credentials");
-        return;
-      }
-    }
-
-    // No local user found - store for later sync
-    await _storeOfflineLogin();
-    _showSnackbar("Offline Mode", "Login will be processed when online", isError: false);
-    Get.offAllNamed('/offline-home');
-  }
-
   void _handleSuccessfulLogin(Map<String, dynamic> result) {
     final user = result['user'];
     final roleFromServer = user['role'];
+
+    print("✅ Login success for: ${user['email']} | Role: $roleFromServer");
 
     _showSnackbar("Success", "Welcome, ${user['name']}", isError: false);
 
@@ -222,11 +177,15 @@ class LoginController extends GetxController {
     }
   }
 
+  /// ✅ PUBLIC sync method so it can be called by SyncController
   Future<void> syncPendingLogins() async {
     if (!isOnline.value) return;
 
     final pendingLogins = box.read('pendingLogins') ?? [];
     if (pendingLogins.isEmpty) return;
+
+    print("📡 baseUrl: $baseUrl");
+    print("🔄 Syncing ${pendingLogins.length} pending logins...");
 
     for (var loginData in pendingLogins) {
       if (loginData['synced'] == true) continue;
@@ -238,18 +197,48 @@ class LoginController extends GetxController {
           body: jsonEncode(loginData),
         ).timeout(apiTimeout);
 
+        print("🔁 Sync Response: ${response.statusCode} => ${response.body}");
+
         if (response.statusCode == 200) {
           loginData['synced'] = true;
           await box.write('pendingLogins', pendingLogins);
           _handleSuccessfulLogin(jsonDecode(response.body));
+        } else {
+          print("⚠️ Sync failed for one login: ${response.body}");
         }
       } catch (e) {
-        print("Failed to sync login: $e");
+        print("⚠️ Failed to sync login: $e");
       }
     }
 
-    // Remove synced logins
     final remainingLogins = pendingLogins.where((l) => l['synced'] == false).toList();
     await box.write('pendingLogins', remainingLogins);
+  }
+
+  Future<void> _handleOfflineLogin() async {
+    final localUsers = box.read('localUsers') ?? [];
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+    final role = _formatRole(selectedRole.value);
+
+    final user = localUsers.firstWhere(
+          (u) => u['email'] == email && u['role'] == role,
+      orElse: () => null,
+    );
+
+    if (user != null) {
+      if (user['password'] == password) {
+        _showSnackbar("Offline Mode", "Logged in offline", isError: false);
+        Get.offAllNamed('/offline-home');
+        return;
+      } else {
+        _showSnackbar("Error", "Invalid credentials");
+        return;
+      }
+    }
+
+    await _storeOfflineLogin();
+    _showSnackbar("Offline Mode", "Login will be processed when online", isError: false);
+    Get.offAllNamed('/offline-home');
   }
 }

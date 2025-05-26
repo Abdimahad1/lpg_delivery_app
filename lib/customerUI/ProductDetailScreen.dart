@@ -6,6 +6,7 @@ import '../controllers/cart_controller.dart';
 import '../controllers/profile_controller.dart';
 import '../config/api_config.dart';
 import 'CustomerCartScreen.dart';
+import 'PayScreen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final String title;
@@ -85,9 +86,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
   }
 
-  void _buyNow() async {
-    await _addToCartBackend();
-    Get.to(() => const CustomerCartScreen());
+  void _buyNow() {
+    // Navigate to PayScreen without adding to cart
+    Get.to(() => const PayScreen());
   }
 
   @override
@@ -224,9 +225,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () {
-                              _buyNow();
-                            },
+                            onPressed: _buyNow,
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                             icon: const Icon(Icons.shopping_bag, color: Colors.white),
                             label: const Text("BUY NOW", style: TextStyle(color: Colors.white)),

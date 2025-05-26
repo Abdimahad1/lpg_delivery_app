@@ -1,44 +1,56 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 
-/// 🌍 CONFIGURATION SECTION
+/// 🌍 Choose which environment to use:
+/// Options: "ngrok", "localEmulator", "localDevice", "localhost", "deployed"
+const String? overrideEnv = "ngrok"; // ✅ Using ngrok for real device testing
 
-// 🧪 Emulator IP for Android Studio Emulator
-const String emulatorHost = "http://10.0.2.2:5000";
+// 🛰️ Your base URLs per environment
+const String emulatorHost = "http://10.0.2.2:5000"; // Android Emulator
+const String realDeviceHost = "http://192.168.6.25:5000"; // Laptop IP
+const String localhostHost = "http://localhost:5000"; // Browsers / dev machine
+const String ngrokHost = "https://1c7d-192-145-175-214.ngrok-free.app"; // ✅ Active ngrok URL
+const String deployedHost = "https://your-production-backend.com"; // Live backend (future)
 
-// 🖥 Local PC IP address (accessible from real devices over the same Wi-Fi)
-const String realDeviceHost = "http://192.168.100.25:5000"; // Change if needed
+// 📡 Final base URL with `/api/` included (backend uses `/api/auth`)
+final String baseUrl = (() {
+  String raw;
 
-// 🖥 iOS Simulator or Flutter Web (runs on same machine)
-const String localhostHost = "http://localhost:5000";
-
-// 🌐 Public backend via ngrok (works with mobile data, hotspot, etc.)
-const String ngrokHost = "https://356b-192-145-175-214.ngrok-free.app"; // Change when you restart ngrok
-
-// ☁️ Optionally, your deployed URL (e.g., Render, Railway)
-const String deployedHost = "https://your-production-backend.com"; // Optional for future use
-
-/// 🧠 Choose which host to use below:
-/// Set one of the following values to use as active environment:
-/// "ngrok", "localEmulator", "localDevice", "localhost", "deployed"
-const String activeEnv = "ngrok"; // 👈 Change this to switch environments
-
-/// 🌐 Final baseUrl used in your app
-final String baseUrl = () {
-  switch (activeEnv) {
-    case "ngrok":
-      return ngrokHost;
-    case "localEmulator":
-      return emulatorHost;
-    case "localDevice":
-      return realDeviceHost;
-    case "localhost":
-      return localhostHost;
-    case "deployed":
-      return deployedHost;
-    default:
-      return ngrokHost; // fallback
+  if (overrideEnv != null) {
+    switch (overrideEnv) {
+      case "ngrok":
+        raw = ngrokHost;
+        break;
+      case "localEmulator":
+        raw = emulatorHost;
+        break;
+      case "localDevice":
+        raw = realDeviceHost;
+        break;
+      case "localhost":
+        raw = localhostHost;
+        break;
+      case "deployed":
+        raw = deployedHost;
+        break;
+      default:
+        raw = ngrokHost;
+    }
+  } else {
+    if (kIsWeb || defaultTargetPlatform == TargetPlatform.macOS) {
+      raw = localhostHost;
+    } else if (Platform.isAndroid) {
+      raw = emulatorHost;
+    } else {
+      raw = ngrokHost;
+    }
   }
-}();
 
-/// ⏱ API timeout configuration
+  if (!raw.endsWith('/')) raw += '/';
+  raw += 'api/'; // ✅ Include /api/
+  print("📡 baseUrl: $raw");
+  return raw;
+})();
+
 const Duration apiTimeout = Duration(seconds: 15);

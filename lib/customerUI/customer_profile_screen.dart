@@ -142,18 +142,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                   Stack(
                     alignment: Alignment.center,
                     children: [
-                      GestureDetector(
+                      Obx(() => GestureDetector(
                         onTap: controller.uploadImage,
-                        child: Obx(() => CircleAvatar(
+                        child: CircleAvatar(
                           radius: 50,
                           backgroundImage: controller.profileImage != null
                               ? FileImage(controller.profileImage!)
                               : controller.profileImageUrl.value.isNotEmpty
                               ? NetworkImage(controller.profileImageUrl.value)
-                              : const AssetImage("assets/images/user.png")
-                          as ImageProvider,
-                        )),
-                      ),
+                              : const AssetImage("assets/images/user.png") as ImageProvider,
+                        ),
+                      )),
                       Positioned(
                         bottom: 4,
                         right: 4,

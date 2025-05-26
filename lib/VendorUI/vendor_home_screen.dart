@@ -49,7 +49,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
 
     try {
       final res = await http.get(
-        Uri.parse('$baseUrl/api/products'),
+        Uri.parse('${baseUrl}products'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -66,7 +66,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
               "name": item['name'],
               "description": item['description'] ?? '',
               "quantity": item['quantity'],
-              "price": item['price'],
+              "price": double.parse(item['price'].toString()),
               "image": item['image'] ?? '',
             }).toList());
           });
@@ -94,7 +94,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/products'),
+        Uri.parse('${baseUrl}products'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
           "name": nameController.text.trim(),
           "description": descriptionController.text.trim(),
           "quantity": int.parse(quantityController.text),
-          "price": int.parse(priceController.text),
+          "price": double.parse(priceController.text),
           "image": imageData,
         }),
       );
@@ -130,7 +130,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
 
     try {
       final response = await http.put(
-        Uri.parse('$baseUrl/api/products/${_currentProductId}'),
+        Uri.parse('${baseUrl}products/$_currentProductId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -139,7 +139,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
           "name": nameController.text.trim(),
           "description": descriptionController.text.trim(),
           "quantity": int.parse(quantityController.text),
-          "price": int.parse(priceController.text),
+          "price": double.parse(priceController.text),
           "image": imageData,
         }),
       );
@@ -164,7 +164,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
 
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/api/products/$productId'),
+        Uri.parse('${baseUrl}products/$productId'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -406,7 +406,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
 class ProductCard extends StatelessWidget {
   final String name;
   final String? description;
-  final int price;
+  final double price;
   final int quantity;
   final String imageData;
   final VoidCallback onUpdate;
@@ -518,19 +518,19 @@ class ProductCard extends StatelessWidget {
       if (imageData.startsWith('http')) {
         return Image.network(
           imageData,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
         );
       } else if (imageData.startsWith('data:image')) {
         return Image.memory(
           base64.decode(imageData.split(',').last),
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
         );
       } else if (imageData.isNotEmpty) {
         return Image.asset(
           imageData,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
         );
       }

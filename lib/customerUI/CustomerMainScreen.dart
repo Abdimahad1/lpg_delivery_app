@@ -39,7 +39,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFF00),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: _buildDynamicAppBar(),
       body: SafeArea(
         child: IndexedStack(

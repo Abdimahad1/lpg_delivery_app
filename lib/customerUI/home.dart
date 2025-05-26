@@ -7,6 +7,7 @@ import '../config/api_config.dart';
 import '../controllers/cart_controller.dart';
 import '../controllers/profile_controller.dart';
 import 'ProductDetailScreen.dart';
+import 'search_vendors_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
   final Function(int)? onTabSelected;
@@ -30,8 +31,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _fetchRandomProducts();
-    print('Calling fetchNearbyVendors...'); // Debugging statement
-    profileController.fetchNearbyVendors();
   }
 
   @override
@@ -43,7 +42,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Future<void> _fetchRandomProducts() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/products/random?limit=7'),
+        Uri.parse('${baseUrl}products/random?limit=7'),
         headers: {'Authorization': 'Bearer ${profileController.authToken}'},
       );
 
@@ -105,42 +104,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
           ),
 
-          // Location Chip
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Obx(() => GestureDetector(
-              onTap: () => widget.onTabSelected?.call(4),
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.9,
-                ),
-                child: Chip(
-                  backgroundColor: const Color(0xFF3E3EFF),
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.location_on, color: Colors.white, size: 18),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          profileController.userAddress.value.isNotEmpty
-                              ? profileController.userAddress.value
-                              : "Set your location",
-                          style: const TextStyle(color: Colors.white),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.edit, color: Colors.white, size: 16),
-                    ],
-                  ),
-                ),
-              ),
-            )),
-          ),
-
           const SizedBox(height: 16),
 
           // Main Content
@@ -155,46 +118,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSectionHeader("Vendors Near You", "View more"),
-                      const SizedBox(height: 12),
-                      Obx(() {
-                        final vendors = profileController.nearbyVendors;
-
-                        if (profileController.isLoading.value) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-
-                        if (profileController.vendorFetchError.isNotEmpty) {
-                          return Center(
-                            child: Text(
-                              'Error: ${profileController.vendorFetchError.value}',
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          );
-                        }
-
-                        if (vendors.isEmpty) {
-                          return const Center(child: Text('No vendors found nearby'));
-                        }
-
-                        return SizedBox(
-                          height: 160,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: vendors.length.clamp(0, 3), // only show up to 3
-                            itemBuilder: (context, index) {
-                              final vendor = vendors[index];
-                              return VendorCard(
-                                name: vendor['shopName'] ?? vendor['name'] ?? 'Vendor',
-                                imagePath: vendor['profileImage'] ?? 'assets/images/vendor.png',
-                                location: vendor['address'] ?? 'No location',
-                                vendorId: vendor['userId'],
-                              );
-                            },
-                          ),
-                        );
-                      }),
-                      const SizedBox(height: 25),
                       _buildSectionHeader("Getting Started Today", ""),
                       const SizedBox(height: 12),
                       GridView.count(
@@ -210,9 +133,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             label: "Buy Cooking Gas",
                             onTap: () => widget.onTabSelected?.call(1),
                           ),
-                          const QuickActionCard(
+                          QuickActionCard(
                             icon: Icons.location_on,
                             label: "Locate Vendors",
+                            onTap: () {
+                              Get.to(() => SearchVendorsScreen());
+                            },
                           ),
                           const QuickActionCard(
                             icon: Icons.history,

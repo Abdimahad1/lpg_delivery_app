@@ -38,7 +38,7 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
   Future<void> _fetchAllProducts() async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/products/all'),
+        Uri.parse('${baseUrl}products/all'),
         headers: {
           'Authorization': 'Bearer ${_profileController.authToken}'
         },
@@ -117,106 +117,109 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
       backgroundColor: const Color(0xFFFFF1F5),
       body: Column(
         children: [
-          // Search Bar
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: Colors.grey),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration.collapsed(
-                      hintText: "Search gas products...",
-                      hintStyle: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-                if (_searchController.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
-                    onPressed: () => _searchController.clear(),
-                  ),
-              ],
-            ),
-          ),
+          _buildSearchBar(),
+          _buildFilters(),
+          Expanded(child: _buildProductList()),
+        ],
+      ),
+    );
+  }
 
-          // Filters
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _sortOption,
-                    decoration: const InputDecoration(border: InputBorder.none),
-                    items: ['Default', 'Price ↑', 'Price ↓', 'A-Z', 'Z-A']
-                        .map((label) => DropdownMenuItem(
-                      value: label,
-                      child: Text(label),
-                    ))
-                        .toList(),
-                    onChanged: (value) {
-                      _sortOption = value!;
-                      _applyFilters();
-                    },
-                  ),
-                ),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedVendor,
-                    decoration: const InputDecoration(border: InputBorder.none),
-                    items: _vendors
-                        .map((v) => DropdownMenuItem(
-                      value: v,
-                      child: Text(v, overflow: TextOverflow.ellipsis),
-                    ))
-                        .toList(),
-                    onChanged: (value) {
-                      _selectedVendor = value!;
-                      _applyFilters();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Product List
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.search, color: Colors.grey),
+          const SizedBox(width: 10),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredProducts.isEmpty
-                ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 50, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text("No products found", style: TextStyle(fontSize: 18, color: Colors.grey)),
-                  Text("Try a different search term", style: TextStyle(fontSize: 14, color: Colors.grey)),
-                ],
+            child: TextField(
+              controller: _searchController,
+              decoration: const InputDecoration.collapsed(
+                hintText: "Search gas products...",
+                hintStyle: TextStyle(color: Colors.grey),
               ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: _filteredProducts.length,
-              itemBuilder: (context, index) {
-                final product = _filteredProducts[index];
-                return _buildProductCard(product);
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear, size: 20),
+              onPressed: () => _searchController.clear(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _sortOption,
+              decoration: const InputDecoration(border: InputBorder.none),
+              items: ['Default', 'Price ↑', 'Price ↓', 'A-Z', 'Z-A']
+                  .map((label) => DropdownMenuItem(value: label, child: Text(label)))
+                  .toList(),
+              onChanged: (value) {
+                _sortOption = value!;
+                _applyFilters();
+              },
+            ),
+          ),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: _selectedVendor,
+              decoration: const InputDecoration(border: InputBorder.none),
+              items: _vendors
+                  .map((v) => DropdownMenuItem(
+                value: v,
+                child: Text(v, overflow: TextOverflow.ellipsis),
+              ))
+                  .toList(),
+              onChanged: (value) {
+                _selectedVendor = value!;
+                _applyFilters();
               },
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildProductList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    } else if (_filteredProducts.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 50, color: Colors.grey),
+            SizedBox(height: 16),
+            Text("No products found", style: TextStyle(fontSize: 18, color: Colors.grey)),
+            Text("Try a different search term", style: TextStyle(fontSize: 14, color: Colors.grey)),
+          ],
+        ),
+      );
+    } else {
+      return ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _filteredProducts.length,
+        itemBuilder: (context, index) {
+          return _buildProductCard(_filteredProducts[index]);
+        },
+      );
+    }
   }
 
   Widget _buildProductCard(Map<String, dynamic> product) {
@@ -258,12 +261,15 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
                         const Icon(Icons.location_on, size: 14, color: Colors.red),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Text(product['location'], style: const TextStyle(fontSize: 12, color: Colors.grey), overflow: TextOverflow.ellipsis),
+                          child: Text(product['location'],
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              overflow: TextOverflow.ellipsis),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text("\$${product['price'].toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                    Text("\$${product['price'].toStringAsFixed(2)}",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
                   ],
                 ),
               ),

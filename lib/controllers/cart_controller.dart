@@ -7,7 +7,7 @@ import '../config/api_config.dart';
 import 'profile_controller.dart';
 
 class CartItem {
-  final String? id;  // MongoDB _id
+  final String? id; // MongoDB _id
   final String title;
   final double price;
   final String location;
@@ -62,15 +62,6 @@ class CartController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-
-    ever(profileController.isCartInitialized, (initialized) {
-      if (initialized && profileController.authToken.isNotEmpty) {
-        fetchCartFromBackend();
-      } else {
-        clearCart();
-      }
-    });
-
     ever<String>(profileController.rxAuthToken, (token) {
       if (token.isNotEmpty) {
         fetchCartFromBackend();
@@ -90,7 +81,7 @@ class CartController extends GetxController {
     isLoading.value = true;
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/cart'),
+        Uri.parse('${baseUrl}cart'),
         headers: {
           'Authorization': 'Bearer ${profileController.authToken}',
         },
@@ -147,7 +138,7 @@ class CartController extends GetxController {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/cart/add'),
+        Uri.parse('${baseUrl}cart/add'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${profileController.authToken}',
@@ -177,7 +168,7 @@ class CartController extends GetxController {
     try {
       isLoading.value = true;
       final response = await http.delete(
-        Uri.parse('$baseUrl/api/cart/remove-by-product/$productId'),
+        Uri.parse('${baseUrl}cart/remove-by-product/$productId'),
         headers: {
           'Authorization': 'Bearer ${profileController.authToken}',
         },
@@ -186,9 +177,7 @@ class CartController extends GetxController {
       final responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        // Remove from local list
         cartItems.removeWhere((item) => item.productId == productId);
-
         Get.snackbar('Success', responseData['message'] ?? 'Item removed from cart',
             backgroundColor: Colors.green, colorText: Colors.white);
       } else {
@@ -220,7 +209,7 @@ class CartController extends GetxController {
       );
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/cart/add'),
+        Uri.parse('${baseUrl}cart/add'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${profileController.authToken}',
@@ -246,7 +235,7 @@ class CartController extends GetxController {
 
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/api/cart/clear'),
+        Uri.parse('${baseUrl}cart/clear'),
         headers: {
           'Authorization': 'Bearer ${profileController.authToken}',
         },

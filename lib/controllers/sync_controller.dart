@@ -9,12 +9,18 @@ class SyncController extends GetxController {
   Future<void> syncAllData() async {
     isSyncing.value = true;
     try {
+      print("🔄 Syncing pending signups...");
       await Get.find<SignupController>().syncPendingSignups();
+
+      print("🔄 Syncing pending logins...");
       await Get.find<LoginController>().syncPendingLogins();
+
       lastSyncTime.value = DateTime.now();
-      Get.snackbar("Success", "Data synchronized", snackPosition: SnackPosition.BOTTOM);
-    } catch (e) {
-      Get.snackbar("Error", "Sync failed: ${e.toString()}");
+      Get.snackbar("✅ Sync Success", "Data synchronized successfully", snackPosition: SnackPosition.BOTTOM);
+    } catch (e, stack) {
+      print("❌ Sync error: $e");
+      print("🪵 Stack Trace:\n$stack");
+      Get.snackbar("❌ Sync Error", "Failed to sync data: $e");
     } finally {
       isSyncing.value = false;
     }

@@ -23,7 +23,7 @@ android {
         targetSdkVersion 35  // Updated to match SDK 35
         versionCode 1
         versionName "1.0.0"
-        ndkVersion = "25.1.8937393"
+        ndkVersion "26.1.10909125"
     }
 
     buildTypes {

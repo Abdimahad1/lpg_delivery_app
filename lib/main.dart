@@ -7,7 +7,7 @@ import 'VendorUI/VendorMainScreen.dart';
 import 'controllers/cart_controller.dart';
 import 'controllers/profile_controller.dart';
 import 'services/http_service.dart'; // Add this import
-
+import 'customerUI/search_vendors_screen.dart';
 // Auth Screens
 import 'auth/loading_screen.dart';
 import 'auth/login_screen.dart' as login;
@@ -42,6 +42,8 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/signup', page: () => signup.SignupScreen()),
         GetPage(name: '/customer-home', page: () => const CustomerMainScreen()),
         GetPage(name: '/vendor-home', page: () => const VendorMainScreen()),
+        GetPage(name: '/search-vendors', page: () => const SearchVendorsScreen()),
+
       ],
     );
   }

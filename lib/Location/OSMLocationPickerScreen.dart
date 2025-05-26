@@ -23,7 +23,7 @@ class OSMLocationPickerScreen extends StatefulWidget {
 class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
   late final MapController _mapController;
   late latlng.LatLng _pickedLocation;
-  late String _address;
+  String _address = "Searching address...";
   final TextEditingController _searchController = TextEditingController();
   bool _isLoadingAddress = false;
   bool _isConfirming = false;
@@ -35,9 +35,12 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
     _address = widget.initialAddress ?? "Searching address...";
     _mapController = MapController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchAddressFromCoordinates(_pickedLocation);
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _fetchAddressFromCoordinates(_pickedLocation);
+      });
     });
   }
+
 
   Future<void> _fetchAddressFromCoordinates(latlng.LatLng latLng) async {
     if (!mounted) return;
@@ -120,7 +123,7 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
           _fetchAddressFromCoordinates(newLocation);
         }
       } else {
-        Get.snackbar("Not Found", "No location found for '$query'",
+        Get.snackbar("Not Found", "No location found for '\$query'",
             snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
@@ -131,7 +134,9 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
 
   String _formatAddress(Map<String, dynamic> data) {
     final address = data['address'] as Map<String, dynamic>?;
-    if (address == null) return data['display_name'] ?? 'Address not found';
+    if (address == null || address.isEmpty) {
+      return data['display_name'] ?? 'Address not found';
+    }
 
     final components = [
       address['house_number'],
@@ -145,6 +150,7 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
 
     return components.isNotEmpty ? components : data['display_name'] ?? 'Address not found';
   }
+
 
   void _onTapMap(TapPosition tapPosition, latlng.LatLng point) {
     setState(() {
@@ -198,18 +204,13 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
-              initialCameraFit: CameraFit.coordinates(
-                coordinates: [_pickedLocation],
-                minZoom: 15,
-                maxZoom: 17,
-                padding: const EdgeInsets.all(80),
-              ),
+              initialCenter: _pickedLocation,
+              initialZoom: 16,
             ),
             children: [
               TileLayer(
                 urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
-                userAgentPackageName: 'com.example.lpg_delivery_app',
               ),
               MarkerLayer(
                 markers: [
@@ -223,16 +224,13 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
               ),
               RichAttributionWidget(
                 attributions: [
-                  TextSourceAttribution(
-                    'OpenStreetMap contributors',
-                    onTap: () {},
-                  ),
+                  TextSourceAttribution('OpenStreetMap contributors'),
                 ],
               ),
             ],
           ),
 
-          // Search bar
+          // 🔍 Search Bar
           Positioned(
             top: 10,
             left: 16,
@@ -262,7 +260,23 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
             ),
           ),
 
-          // Address box
+          // 🔁 Refresh Button
+          Positioned(
+            bottom: 160,
+            right: 16,
+            child: ElevatedButton.icon(
+              onPressed: () => _fetchAddressFromCoordinates(_pickedLocation),
+              icon: const Icon(Icons.refresh),
+              label: const Text("Refresh"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+
+          // 📍 Address Info Box
           Positioned(
             bottom: 100,
             left: 16,
@@ -316,6 +330,7 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
           ),
         ],
       ),
+
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoadingAddress ? null : _confirmLocation,
         icon: _isConfirming

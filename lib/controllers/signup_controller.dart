@@ -92,7 +92,7 @@ class SignupController extends GetxController {
 
       try {
         final response = await http.post(
-          Uri.parse("$baseUrl/api/auth/signup"),
+          Uri.parse("${baseUrl}auth/signup"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode(signupData),
         ).timeout(apiTimeout);
@@ -141,7 +141,7 @@ class SignupController extends GetxController {
 
     try {
       final response = await http.post(
-        Uri.parse("$baseUrl/api/auth/signup"),
+        Uri.parse("${baseUrl}auth/signup"),
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
@@ -153,7 +153,10 @@ class SignupController extends GetxController {
           "password": passwordController.text.trim(),
           "role": selectedRole.value,
         }),
-      ).timeout(const Duration(seconds: 10));
+      );
+
+      print("⬅️ Status: ${response.statusCode}");
+      print("⬅️ Body: ${response.body}");
 
       final responseBody = json.decode(utf8.decode(response.bodyBytes));
 
@@ -203,7 +206,7 @@ class SignupController extends GetxController {
 
       try {
         final response = await http.post(
-          Uri.parse("$baseUrl/api/auth/signup"),
+          Uri.parse("${baseUrl}auth/signup"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode(signupData),
         ).timeout(apiTimeout);
