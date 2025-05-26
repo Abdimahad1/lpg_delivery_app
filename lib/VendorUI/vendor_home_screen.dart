@@ -493,13 +493,21 @@ class ProductCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Chip(
-                          label: Text('Qty: $quantity'),
-                          backgroundColor: Colors.blue[100],
+                        Flexible(
+                          child: Chip(
+                            label: Text('Qty: $quantity'),
+                            backgroundColor: Colors.blue[100],
+                          ),
                         ),
-                        Chip(
-                          label: Text('\$$price'),
-                          backgroundColor: Colors.green[100],
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Chip(
+                            label: Text(
+                              '\$${price.toStringAsFixed(price.truncateToDouble() == price ? 0 : 2)}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            backgroundColor: Colors.green[100],
+                          ),
                         ),
                       ],
                     ),

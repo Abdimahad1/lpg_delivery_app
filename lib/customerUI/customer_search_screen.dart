@@ -56,6 +56,7 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
             'imagePath': item['image'],
             'location': item['vendorAddress'] ?? '',
             'vendorName': item['vendorName'] ?? '',
+            'vendorPhone': item['vendorPhone'] ?? '', // ✅ NEW
             'productId': item['_id'],
             'vendorId': item['vendorId'],
           };
@@ -239,6 +240,7 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
             vendorName: product['vendorName'],
             productId: product['productId'],
             vendorId: product['vendorId'],
+            vendorPhone:product['vendorPhone']
           ));
         },
         child: Padding(

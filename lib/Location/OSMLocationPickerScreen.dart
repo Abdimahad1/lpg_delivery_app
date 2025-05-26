@@ -46,7 +46,6 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
     if (!mounted) return;
 
     setState(() => _isLoadingAddress = true);
-
     final url = Uri.https(
       'nominatim.openstreetmap.org',
       '/reverse',
@@ -62,7 +61,7 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
     try {
       final response = await http.get(url, headers: {
         'User-Agent': 'lpg-delivery-app'
-      }).timeout(const Duration(seconds: 10));
+      }).timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
@@ -77,7 +76,6 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
         });
       }
     } catch (e) {
-      if (!mounted) return;
       setState(() {
         _address = "Error: ${e is TimeoutException ? 'Request timeout' : e.toString()}";
       });
@@ -87,6 +85,8 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
       }
     }
   }
+
+
 
   Future<void> _searchLocation(String query) async {
     if (query.isEmpty) return;
@@ -188,6 +188,7 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Pick Your Location"),
+        backgroundColor: theme.colorScheme.primary,
         actions: [
           IconButton(
             icon: const Icon(Icons.my_location),
@@ -201,36 +202,32 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
             mapController: _mapController,
             options: MapOptions(
               onTap: _onTapMap,
+              initialCenter: _pickedLocation,
+              initialZoom: 16,
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
-              initialCenter: _pickedLocation,
-              initialZoom: 16,
             ),
             children: [
               TileLayer(
                 urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'com.example.app',
               ),
               MarkerLayer(
                 markers: [
                   Marker(
-                    width: 50,
-                    height: 50,
+                    width: 60,
+                    height: 60,
                     point: _pickedLocation,
-                    child: Icon(Icons.location_pin, size: 50, color: theme.colorScheme.error),
+                    child: const Icon(Icons.location_pin, size: 60, color: Colors.red),
                   ),
-                ],
-              ),
-              RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution('OpenStreetMap contributors'),
                 ],
               ),
             ],
           ),
 
-          // 🔍 Search Bar
+          // 🔍 Search Input
           Positioned(
             top: 10,
             left: 16,
@@ -254,89 +251,54 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
               ),
             ),
           ),
 
-          // 🔁 Refresh Button
+          // 🏠 Address Display
           Positioned(
-            bottom: 160,
-            right: 16,
-            child: ElevatedButton.icon(
-              onPressed: () => _fetchAddressFromCoordinates(_pickedLocation),
-              icon: const Icon(Icons.refresh),
-              label: const Text("Refresh"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-
-          // 📍 Address Info Box
-          Positioned(
-            bottom: 100,
+            bottom: 120,
             left: 16,
             right: 16,
-            child: Material(
-              elevation: 4,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.grey[900] : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Selected Location",
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          _isLoadingAddress
-                              ? Row(
-                            children: [
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(Colors.blue),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text("Loading address...", style: theme.textTheme.bodyMedium),
-                            ],
-                          )
-                              : Text(_address, style: theme.textTheme.bodyMedium),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.place, color: theme.colorScheme.primary),
-                  ],
-                ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkMode ? Colors.grey[900] : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("📍 Selected Address", style: TextStyle(color: Colors.blue[900], fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  _isLoadingAddress
+                      ? Row(
+                    children: const [
+                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                      SizedBox(width: 8),
+                      Text("Loading address...")
+                    ],
+                  )
+                      : Text(
+                    _address,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ],
               ),
             ),
           ),
         ],
       ),
 
+      // ✅ Confirm Button
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoadingAddress ? null : _confirmLocation,
         icon: _isConfirming
             ? const SizedBox(
-          width: 20,
-          height: 20,
+          width: 18,
+          height: 18,
           child: CircularProgressIndicator(
             strokeWidth: 2,
             valueColor: AlwaysStoppedAnimation(Colors.white),
@@ -348,4 +310,5 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
       ),
     );
   }
+
 }

@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/cart_controller.dart';
-import 'dart:convert';
 import 'PayScreen.dart';
 
 class CustomerCartScreen extends StatelessWidget {
@@ -10,7 +10,6 @@ class CustomerCartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final CartController cartController = Get.find();
-    cartController.fetchCartFromBackend();
 
     return Scaffold(
       appBar: AppBar(
@@ -61,22 +60,16 @@ class CustomerCartScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  item.title,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
-                                ),
+                                Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    const Icon(Icons.location_on,
-                                        size: 16, color: Colors.grey),
+                                    const Icon(Icons.location_on, size: 16, color: Colors.grey),
                                     const SizedBox(width: 4),
                                     Flexible(
                                       child: Text(
                                         item.location,
-                                        style: const TextStyle(
-                                            fontSize: 12, color: Colors.grey),
+                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -85,14 +78,12 @@ class CustomerCartScreen extends StatelessWidget {
                                 const SizedBox(height: 8),
                                 Text(
                                   "\$${item.price.toStringAsFixed(2)} x ${item.quantity}",
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   "Total: \$${(item.price * item.quantity).toStringAsFixed(2)}",
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -119,8 +110,7 @@ class CustomerCartScreen extends StatelessWidget {
                   ),
                   Obx(() => Text(
                     "\$${cartController.totalPrice.toStringAsFixed(2)}",
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   )),
                 ],
               ),
@@ -129,7 +119,17 @@ class CustomerCartScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: ElevatedButton(
                 onPressed: () {
-                  Get.to(() => const PayScreen());
+                  // Using the first cart item to get vendor info
+                  final firstItem = cartController.cartItems.first;
+                  final amount = cartController.totalPrice.toStringAsFixed(2);
+                  final vendorPhone = firstItem.vendorPhone; // Use vendorPhone directly
+                  final vendorName = firstItem.title;
+
+                  Get.to(() => PayScreen(
+                    vendorName: vendorName,
+                    vendorPhone: vendorPhone,
+                    amount: amount,
+                  ));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3E3EFF),
@@ -215,7 +215,7 @@ class CustomerCartScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               final cartController = Get.find<CartController>();
-              await cartController.clearCartOnServer();
+              await cartController.clearCartOnServer(); // Call the method without expecting a return value
             },
             child: const Text("Clear", style: TextStyle(color: Colors.red)),
           ),

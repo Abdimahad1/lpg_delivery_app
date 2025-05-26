@@ -140,8 +140,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
                         onTap: controller.uploadImage,
                         child: CircleAvatar(
                           radius: 50,
-                          backgroundImage: controller.profileImage != null
-                              ? FileImage(controller.profileImage!)
+                          backgroundImage: controller.profileImage.value != null
+                              ? FileImage(controller.profileImage.value!)
                               : controller.profileImageUrl.value.isNotEmpty
                               ? NetworkImage(controller.profileImageUrl.value)
                               : const AssetImage("assets/images/user.png") as ImageProvider,
@@ -168,12 +168,12 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(
+                  Obx(() => Text(
                     controller.userName.value.isEmpty
                         ? "Your Name"
                         : controller.userName.value,
                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+                  )),
                 ],
               ),
             )),

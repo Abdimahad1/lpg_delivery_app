@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class PayScreen extends StatelessWidget {
-  const PayScreen({super.key});
+  final String vendorName;
+  final String vendorPhone;
+  final String amount;
+
+  const PayScreen({
+    super.key,
+    required this.vendorName,
+    required this.vendorPhone,
+    required this.amount,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF3E3EFF), // Blue background for outer area
+      backgroundColor: const Color(0xFF3E3EFF),
       body: Column(
         children: [
-          // 🔙 Back button section (blue curved top)
+          // Back button
           Container(
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -37,43 +47,57 @@ class PayScreen extends StatelessWidget {
             ),
           ),
 
-          // 🧾 Payment options (rounded container with white background)
+          // Main payment content
           Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Colors.white38, // White background for card area
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(40),
-                  topRight: Radius.circular(40),
+            child: SingleChildScrollView(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Colors.white38,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(40),
+                    topRight: Radius.circular(40),
+                  ),
                 ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                    "PAY BY",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                      color: Colors.black87,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 10),
+                    Text(
+                      "Pay to $vendorName",
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  const SizedBox(height: 40),
-                  // Larger payment cards in a centered column
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildLargePaymentCard("assets/images/evcplus.png"),
-                        const SizedBox(height: 30),
-                        _buildLargePaymentCard("assets/images/edahab.png"),
-                      ],
+                    const SizedBox(height: 8),
+                    Text("Phone: $vendorPhone", style: const TextStyle(fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Amount: \$$amount",
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 30),
+                    const Text(
+                      "PAY BY",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Column(
+                        children: [
+                          _buildLargePaymentCard("assets/images/evcplus.png"),
+                          const SizedBox(height: 30),
+                          _buildLargePaymentCard("assets/images/edahab.png"),
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -83,21 +107,57 @@ class PayScreen extends StatelessWidget {
   }
 
   Widget _buildLargePaymentCard(String imagePath) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20), // Rounded corners for full card
-      child: Container(
-        height: 180,
-        width: 250,
-        decoration: const BoxDecoration(
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
-          ],
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Background shadow
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            height: 180,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 15,
+                  spreadRadius: 3,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Image.asset(
-          imagePath,
-          fit: BoxFit.cover, // Fill the card with the image
+        // Image card
+        ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            height: 180,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 15,
+                  spreadRadius: 3,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }

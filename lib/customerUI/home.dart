@@ -185,7 +185,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                 vendorName: product['vendorName'] ?? 'Unknown Vendor',
                                 productId: product['_id'],
                                 vendorId: product['vendorId'],
+                                vendorPhone: product['vendorPhone'],
                               ));
+
                             },
                           );
                         },

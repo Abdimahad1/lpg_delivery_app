@@ -17,6 +17,7 @@ class ProductDetailScreen extends StatefulWidget {
   final String vendorName;
   final String productId;
   final String vendorId;
+  final String vendorPhone;
 
   const ProductDetailScreen({
     super.key,
@@ -28,6 +29,7 @@ class ProductDetailScreen extends StatefulWidget {
     required this.vendorName,
     required this.productId,
     required this.vendorId,
+    required this.vendorPhone,
   });
 
   @override
@@ -54,32 +56,38 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
-  Future<void> _addToCartBackend() async {
+  Future<void> _addToCart() async {
     if (_isAddingToCart) return;
 
     setState(() => _isAddingToCart = true);
 
     try {
-      // Create a CartItem object
+      // Create a CartItem object with all required fields
       CartItem item = CartItem(
         title: widget.title,
         price: widget.price,
-        location: widget.location,
+        location: widget.location.isNotEmpty
+            ? widget.location
+            : profileController.userAddress.value.isNotEmpty
+            ? profileController.userAddress.value
+            : 'Unknown Location', // ✅ fallback
         imagePath: widget.imagePath,
         quantity: quantity,
         productId: widget.productId,
         vendorId: widget.vendorId,
+        vendorPhone: widget.vendorPhone,
       );
+
 
       // Add to cart using CartController
       await cartController.addToCart(item);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Added to cart')),
+        const SnackBar(content: Text('Added to cart')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error connecting to server')),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     } finally {
       setState(() => _isAddingToCart = false);
@@ -88,7 +96,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _buyNow() {
     // Navigate to PayScreen without adding to cart
-    Get.to(() => const PayScreen());
+    Get.to(() => PayScreen(vendorName: widget.vendorName, amount: widget.price.toString(), vendorPhone: widget.vendorPhone));
   }
 
   @override
@@ -215,7 +223,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              _addToCartBackend();
+                              _addToCart();
                             },
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.yellow),
                             icon: const Icon(Icons.shopping_cart, color: Colors.black),

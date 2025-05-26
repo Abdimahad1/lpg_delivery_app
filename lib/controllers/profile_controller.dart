@@ -25,7 +25,7 @@ class ProfileController extends GetxController {
 
   final isLoading = false.obs;
   final picker = ImagePicker();
-  File? profileImage;
+  final Rx<File?> profileImage = Rx<File?>(null);
 
   final RxString profileImageUrl = ''.obs;
   final RxString userName = ''.obs;
@@ -137,9 +137,9 @@ class ProfileController extends GetxController {
     nameController.text = data['name'] ?? '';
     userName.value = data['name'] ?? '';
     phoneController.text = data['phone'] ?? '';
+    emailController.text = data['email'] ?? '';
     addressController.text = data['address'] ?? '';
     userAddress.value = data['address'] ?? '';
-    emailController.text = data['email'] ?? '';
     profileImageUrl.value = data['profileImage'] ?? '';
     shopNameController.text = data['shopName'] ?? '';
 
@@ -226,7 +226,7 @@ class ProfileController extends GetxController {
       final json = jsonDecode(responseString);
 
       if (response.statusCode == 200 && json['success'] == true) {
-        profileImage = File(picked.path);
+        profileImage.value = File(picked.path);
         profileImageUrl.value = json['imageUrl'];
         showSnackbar("Success", "Image uploaded", isError: false);
       } else {
@@ -255,7 +255,7 @@ class ProfileController extends GetxController {
     userAddress.value = '';
     latitude.value = 0.0;
     longitude.value = 0.0;
-    profileImage = null;
+    profileImage.value = null;
     profileImageUrl.value = '';
     notifications.assignAll({"email": true, "inApp": true, "sms": true});
   }
@@ -291,6 +291,28 @@ class ProfileController extends GetxController {
     latitude.value = lat;
     longitude.value = lng;
     fetchNearbyVendors();
+  }
+
+  Future<Map<String, dynamic>?> getVendorProfile(String vendorId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${baseUrl}profile/$vendorId'),
+        headers: {
+          'Authorization': 'Bearer $authToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          return data['data'];
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching vendor profile: $e');
+      return null;
+    }
   }
 
   @override

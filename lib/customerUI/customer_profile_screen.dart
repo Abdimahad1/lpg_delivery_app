@@ -146,8 +146,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                         onTap: controller.uploadImage,
                         child: CircleAvatar(
                           radius: 50,
-                          backgroundImage: controller.profileImage != null
-                              ? FileImage(controller.profileImage!)
+                          backgroundImage: controller.profileImage.value != null
+                              ? FileImage(controller.profileImage.value!)
                               : controller.profileImageUrl.value.isNotEmpty
                               ? NetworkImage(controller.profileImageUrl.value)
                               : const AssetImage("assets/images/user.png") as ImageProvider,

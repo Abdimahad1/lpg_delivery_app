@@ -17,6 +17,7 @@ import 'auth/sign_up_screen.dart' as signup;
 import 'customerUI/CustomerMainScreen.dart';
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // 🔥 REQUIRED
   await GetStorage.init(); // Initialize GetStorage first
   runApp(const MyApp());
 }
