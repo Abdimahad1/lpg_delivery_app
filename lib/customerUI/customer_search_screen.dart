@@ -270,8 +270,13 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text("\$${product['price'].toStringAsFixed(2)}",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '\$${(product['price'] as double) < 0.01 ? (product['price'] as double).toStringAsFixed(3) : (product['price'] as double).toStringAsFixed(2)}',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
+                      ),
+                    )
                   ],
                 ),
               ),

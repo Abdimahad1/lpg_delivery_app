@@ -96,7 +96,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _buyNow() {
     // Navigate to PayScreen without adding to cart
-    Get.to(() => PayScreen(vendorName: widget.vendorName, amount: widget.price.toString(), vendorPhone: widget.vendorPhone));
+    Get.to(() => PayScreen(vendorName: widget.vendorName, amount: widget.price.toString()));
   }
 
   @override
@@ -177,9 +177,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          "\$${widget.price.toStringAsFixed(2)}",
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
+                          "\$${widget.price < 0.01 ? widget.price.toStringAsFixed(3) : widget.price.toStringAsFixed(2)}",
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
                         ),
+
                         Row(
                           children: [
                             GestureDetector(
@@ -212,7 +213,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Text("Total: \$${totalPrice.toStringAsFixed(2)}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      "Total: \$${totalPrice < 0.01 ? totalPrice.toStringAsFixed(3) : totalPrice.toStringAsFixed(2)}",
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+
                     const SizedBox(height: 20),
                     const Text("Description", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),

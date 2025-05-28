@@ -502,13 +502,18 @@ class ProductCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Flexible(
                           child: Chip(
-                            label: Text(
-                              '\$${price.toStringAsFixed(price.truncateToDouble() == price ? 0 : 2)}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
                             backgroundColor: Colors.green[100],
+                            label: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '\$${price < 0.01 ? price.toStringAsFixed(3) : price.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
                           ),
                         ),
+
+
                       ],
                     ),
                   ],

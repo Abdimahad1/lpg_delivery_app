@@ -3,9 +3,14 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 // Controllers
+import 'DeliveryPersonUI/DeliveryHistoryScreen.dart';
+import 'DeliveryPersonUI/DeliveryMainScreen.dart';
+import 'DeliveryPersonUI/DeliveryProfileScreen.dart';
+import 'DeliveryPersonUI/DeliveryTasksScreen.dart';
 import 'VendorUI/VendorMainScreen.dart';
 import 'controllers/cart_controller.dart';
 import 'controllers/profile_controller.dart';
+import 'customerUI/TransactionHistoryScreen.dart';
 import 'services/http_service.dart'; // Add this import
 import 'customerUI/search_vendors_screen.dart';
 // Auth Screens
@@ -44,6 +49,12 @@ class MyApp extends StatelessWidget {
         GetPage(name: '/customer-home', page: () => const CustomerMainScreen()),
         GetPage(name: '/vendor-home', page: () => const VendorMainScreen()),
         GetPage(name: '/search-vendors', page: () => const SearchVendorsScreen()),
+        GetPage(name: '/transaction-history', page: () => const TransactionHistoryScreen()),
+        GetPage(name: '/delivery-home', page: () => const DeliveryMainScreen()),
+        GetPage(name: '/delivery-tasks', page: () => const DeliveryTasksScreen()),
+        GetPage(name: '/delivery-history', page: () => const DeliveryHistoryScreen()),
+        GetPage(name: '/delivery-profile', page: () => const DeliveryProfileScreen()),
+
 
       ],
     );

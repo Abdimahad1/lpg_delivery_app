@@ -175,6 +175,7 @@ class LoginController extends GetxController {
       default:
         _showSnackbar("Error", "Unknown role: $roleFromServer");
     }
+
   }
 
   /// ✅ PUBLIC sync method so it can be called by SyncController

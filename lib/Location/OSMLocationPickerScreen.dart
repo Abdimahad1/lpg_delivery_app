@@ -5,6 +5,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as latlng;
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:location/location.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class OSMLocationPickerScreen extends StatefulWidget {
   final latlng.LatLng? initialLocation;
@@ -34,18 +36,37 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
     _pickedLocation = widget.initialLocation ?? const latlng.LatLng(2.0469, 45.3182);
     _address = widget.initialAddress ?? "Searching address...";
     _mapController = MapController();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _fetchAddressFromCoordinates(_pickedLocation);
-      });
+      _askLocationPermissionAndFetch();
     });
   }
 
+  Future<void> _askLocationPermissionAndFetch() async {
+    final status = await Permission.location.request();
+
+    if (status.isGranted) {
+      final location = Location();
+      final currentLocation = await location.getLocation();
+
+      final userLatLng = latlng.LatLng(currentLocation.latitude!, currentLocation.longitude!);
+      setState(() {
+        _pickedLocation = userLatLng;
+        _address = "Fetching your current address...";
+      });
+      _mapController.move(userLatLng, 19);
+      _fetchAddressFromCoordinates(userLatLng);
+    } else {
+      _fetchAddressFromCoordinates(_pickedLocation);
+      Get.snackbar("Permission Denied", "You can manually select a location or allow access.",
+          snackPosition: SnackPosition.BOTTOM);
+    }
+  }
 
   Future<void> _fetchAddressFromCoordinates(latlng.LatLng latLng) async {
     if (!mounted) return;
-
     setState(() => _isLoadingAddress = true);
+
     final url = Uri.https(
       'nominatim.openstreetmap.org',
       '/reverse',
@@ -53,7 +74,7 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
         'lat': latLng.latitude.toString(),
         'lon': latLng.longitude.toString(),
         'format': 'json',
-        'zoom': '18',
+        'zoom': '19',
         'addressdetails': '1'
       },
     );
@@ -77,16 +98,32 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
       }
     } catch (e) {
       setState(() {
-        _address = "Error: ${e is TimeoutException ? 'Request timeout' : e.toString()}";
+        _address = "Error: ${e is TimeoutException ? 'Timeout' : e.toString()}";
       });
     } finally {
-      if (mounted) {
-        setState(() => _isLoadingAddress = false);
-      }
+      if (mounted) setState(() => _isLoadingAddress = false);
     }
   }
 
+  String _formatAddress(Map<String, dynamic> data) {
+    final address = data['address'] as Map<String, dynamic>?;
 
+    if (address == null || address.isEmpty) {
+      return data['display_name'] ?? 'Address not found';
+    }
+
+    final components = [
+      address['house_number'],
+      address['road'],
+      address['neighbourhood'],
+      address['suburb'],
+      address['city'] ?? address['town'],
+      address['state'],
+      address['country'],
+    ].where((c) => c != null).join(', ');
+
+    return components.isNotEmpty ? components : data['display_name'] ?? 'Address not found';
+  }
 
   Future<void> _searchLocation(String query) async {
     if (query.isEmpty) return;
@@ -119,11 +156,11 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
             _pickedLocation = newLocation;
             _address = "Searching address...";
           });
-          _mapController.move(newLocation, 15);
+          _mapController.move(newLocation, 19);
           _fetchAddressFromCoordinates(newLocation);
         }
       } else {
-        Get.snackbar("Not Found", "No location found for '\$query'",
+        Get.snackbar("Not Found", "No location found for '$query'",
             snackPosition: SnackPosition.BOTTOM);
       }
     } catch (e) {
@@ -132,32 +169,12 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
     }
   }
 
-  String _formatAddress(Map<String, dynamic> data) {
-    final address = data['address'] as Map<String, dynamic>?;
-    if (address == null || address.isEmpty) {
-      return data['display_name'] ?? 'Address not found';
-    }
-
-    final components = [
-      address['house_number'],
-      address['road'],
-      address['neighbourhood'],
-      address['suburb'],
-      address['city'] ?? address['town'],
-      address['state'],
-      address['country'],
-    ].where((c) => c != null).join(', ');
-
-    return components.isNotEmpty ? components : data['display_name'] ?? 'Address not found';
-  }
-
-
   void _onTapMap(TapPosition tapPosition, latlng.LatLng point) {
     setState(() {
       _pickedLocation = point;
       _address = "Searching address...";
     });
-    _mapController.move(point, _mapController.camera.zoom);
+    _mapController.move(point, 19);
     _fetchAddressFromCoordinates(point);
   }
 
@@ -226,8 +243,6 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
               ),
             ],
           ),
-
-          // 🔍 Search Input
           Positioned(
             top: 10,
             left: 16,
@@ -255,8 +270,6 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
               ),
             ),
           ),
-
-          // 🏠 Address Display
           Positioned(
             bottom: 120,
             left: 16,
@@ -291,8 +304,6 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
           ),
         ],
       ),
-
-      // ✅ Confirm Button
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoadingAddress ? null : _confirmLocation,
         icon: _isConfirming
@@ -310,5 +321,4 @@ class _OSMLocationPickerScreenState extends State<OSMLocationPickerScreen> {
       ),
     );
   }
-
 }

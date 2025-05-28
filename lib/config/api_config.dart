@@ -10,7 +10,7 @@ const String? overrideEnv = "ngrok"; // ✅ Using ngrok for real device testing
 const String emulatorHost = "http://10.0.2.2:5000"; // Android Emulator
 const String realDeviceHost = "http://192.168.6.25:5000"; // Laptop IP
 const String localhostHost = "http://localhost:5000"; // Browsers / dev machine
-const String ngrokHost = "https://fcbc-41-78-74-72.ngrok-free.app"; // ✅ Active ngrok URL
+const String ngrokHost = "https://e93c-192-145-175-173.ngrok-free.app"; // ✅ Active ngrok URL
 const String deployedHost = "https://your-production-backend.com"; // Live backend (future)
 
 // 📡 Final base URL with `/api/` included (backend uses `/api/auth`)

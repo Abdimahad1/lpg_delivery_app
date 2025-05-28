@@ -1,16 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'dart:async';
 
 class LoadingController extends GetxController {
   final RxBool showMainContent = false.obs;
+  final box = GetStorage();
 
   @override
   void onInit() {
     super.onInit();
-    // Delay before showing content
+
+    // Show animation after 2 seconds
     Timer(const Duration(seconds: 2), () {
       showMainContent.value = true;
+    });
+
+    // Redirect after 3 seconds based on saved user role
+    Timer(const Duration(seconds: 3), () {
+      final token = box.read('token');
+      final role = box.read('role');
+
+      if (token != null && role != null) {
+        switch (role) {
+          case "Customer":
+            Get.offAllNamed('/customer-home');
+            break;
+          case "Vendor":
+            Get.offAllNamed('/vendor-home');
+            break;
+          case "DeliveryPerson":
+            Get.offAllNamed('/delivery-home');
+            break;
+          default:
+            Get.offAllNamed('/login');
+        }
+      } else {
+        Get.offAllNamed('/login');
+      }
     });
   }
 }
@@ -29,7 +56,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    // Initialize animation
+
     animationController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
@@ -118,7 +145,7 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
                     ),
                   ),
                   onPressed: () {
-                    Get.toNamed('/login');  // GetX navigation
+                    Get.toNamed('/login');
                   },
                   child: const Text(
                     'NEXT',

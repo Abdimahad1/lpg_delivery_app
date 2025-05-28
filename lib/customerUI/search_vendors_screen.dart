@@ -167,12 +167,14 @@ class VendorCard extends StatelessWidget {
   final String name;
   final String location;
   final String imageUrl;
+  final double? price; // optional price (e.g. starting price)
 
   const VendorCard({
     super.key,
     required this.name,
     required this.location,
     required this.imageUrl,
+    this.price,
   });
 
   @override
@@ -183,41 +185,59 @@ class VendorCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           children: [
             CircleAvatar(
-              radius: 40,
+              radius: 30,
               backgroundImage: imageUrl.startsWith("http")
                   ? NetworkImage(imageUrl)
                   : const AssetImage('assets/images/vendor.png') as ImageProvider,
             ),
-            const SizedBox(height: 12),
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.location_on, size: 18, color: Colors.red),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    location,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
                     style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 16, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (price != null) ...[
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Price: \$${price! < 0.01 ? price!.toStringAsFixed(3) : price!.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
             ),
           ],
         ),
@@ -225,3 +245,5 @@ class VendorCard extends StatelessWidget {
     );
   }
 }
+
+

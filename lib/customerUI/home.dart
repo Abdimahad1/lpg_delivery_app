@@ -7,6 +7,7 @@ import '../config/api_config.dart';
 import '../controllers/cart_controller.dart';
 import '../controllers/profile_controller.dart';
 import 'ProductDetailScreen.dart';
+import 'TransactionHistoryScreen.dart';
 import 'search_vendors_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
@@ -140,10 +141,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                               Get.to(() => SearchVendorsScreen());
                             },
                           ),
-                          const QuickActionCard(
+                          QuickActionCard(
                             icon: Icons.history,
                             label: "Transaction History",
+                            onTap: () {
+                              Get.to(() =>TransactionHistoryScreen());
+                            },
                           ),
+
                           QuickActionCard(
                             icon: Icons.person,
                             label: "My profile",
@@ -412,9 +417,18 @@ class ProductCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                  )
+                  ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Price: \$${price < 0.01 ? price.toStringAsFixed(3) : price.toStringAsFixed(2)}',
+                      style: const TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ],
               ),
+
             ),
           ],
         ),
