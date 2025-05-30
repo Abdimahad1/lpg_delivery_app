@@ -1,44 +1,60 @@
+import 'dart:convert';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
+import 'profile_controller.dart';
 
 class TaskController extends GetxController {
-  var tasks = <Map<String, String>>[].obs;
+  var tasks = <Map<String, dynamic>>[].obs;
 
-  @override
-  void onInit() {
-    super.onInit();
-    fetchMockTasks();
+  Future<void> fetchMyTasks() async {
+    try {
+      final profileController = Get.find<ProfileController>();
+      final token = profileController.authToken;
+
+      final response = await http.get(
+        Uri.parse('${baseUrl}tasks/my-tasks'),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      print("🔁 API RESPONSE STATUS: ${response.statusCode}");
+      print("📦 API RESPONSE BODY: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final res = jsonDecode(response.body);
+        tasks.value = List<Map<String, dynamic>>.from(res['data']);
+      } else {
+        print("❌ Task fetch failed: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Error fetching tasks: $e");
+    }
   }
 
-  void fetchMockTasks() {
-    tasks.value = [
-      {
-        'product': '6kg Cylinder',
-        'customer': 'Abdi Hussein',
-        'address': 'Hodan-Taleex-Mog-Som',
-        'status': 'Pending'
-      },
-      {
-        'product': '6kg Cylinder',
-        'customer': 'Ahmed Ali',
-        'address': 'Km4-Waberi-Mog-Som',
-        'status': 'Pending'
-      },
-      {
-        'product': '6kg Cylinder',
-        'customer': 'Fatima Noor',
-        'address': 'Hodan-Digfer-Mog-Som',
-        'status': 'Pending'
-      },
-    ];
-  }
+  Future<void> updateTaskStatus(String taskId, String newStatus) async {
+    try {
+      final profileController = Get.find<ProfileController>();
+      final token = profileController.authToken;
 
-  void acceptTask(int index) {
-    tasks[index]['status'] = 'Accepted';
-    tasks.refresh();
-  }
+      final response = await http.patch(
+        Uri.parse('${baseUrl}tasks/update/$taskId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'status': newStatus}),
+      );
 
-  void rejectTask(int index) {
-    tasks[index]['status'] = 'Rejected';
-    tasks.refresh();
+      if (response.statusCode == 200) {
+        print("✅ Task updated: $newStatus");
+        fetchMyTasks();
+      } else {
+        print("❌ Failed to update task: ${response.body}");
+      }
+    } catch (e) {
+      print("❌ Error updating task: $e");
+    }
   }
 }

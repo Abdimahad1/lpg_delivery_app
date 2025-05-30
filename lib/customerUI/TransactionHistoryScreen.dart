@@ -1,8 +1,18 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:get/get.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+import '../config/api_config.dart';
+import '../controllers/profile_controller.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
-  const TransactionHistoryScreen({super.key});
+  final Widget? backRoute;
+
+  const TransactionHistoryScreen({super.key, this.backRoute});
 
   @override
   State<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
@@ -11,6 +21,7 @@ class TransactionHistoryScreen extends StatefulWidget {
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   List<Map<String, dynamic>> allTransactions = [];
   List<Map<String, dynamic>> filteredTransactions = [];
+  bool isLoading = true;
 
   DateTimeRange? selectedDateRange;
   String searchQuery = '';
@@ -19,70 +30,52 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    allTransactions = getMockTransactions();
-    filteredTransactions = List.from(allTransactions);
+    fetchTransactions();
   }
 
-  List<Map<String, dynamic>> getMockTransactions() {
-    return [
-      {
-        "referenceId": "ref-1748420131525",
-        "invoiceId": "INV-1748420128067",
-        "accountNo": "252613797852",
-        "amount": 0.02,
-        "description": "Test payment for Gas",
-        "timestamp": "2025-05-28T08:15:31.525Z",
-        "status": "completed"
-      },
-      {
-        "referenceId": "ref-1748419129494",
-        "invoiceId": "INV-1748419120001",
-        "accountNo": "252618827482",
-        "amount": 1.00,
-        "description": "LPG Purchase",
-        "timestamp": "2025-05-27T18:10:44.525Z",
-        "status": "completed"
-      },
-      {
-        "referenceId": "ref-1748418120001",
-        "invoiceId": "INV-1748418120001",
-        "accountNo": "252612345678",
-        "amount": 2.50,
-        "description": "Cooking Gas Refill",
-        "timestamp": "2025-05-26T12:30:00.000Z",
-        "status": "failed"
-      },
-      {
-        "referenceId": "ref-1748417120001",
-        "invoiceId": "INV-1748417120001",
-        "accountNo": "252698765432",
-        "amount": 3.00,
-        "description": "Industrial Gas Cylinder",
-        "timestamp": "2025-05-25T09:45:00.000Z",
-        "status": "pending"
-      },
-    ];
+  Future<void> fetchTransactions() async {
+    setState(() => isLoading = true);
+    try {
+      final profileController = Get.find<ProfileController>();
+      final token = profileController.authToken;
+
+      final response = await http.get(
+        Uri.parse("${baseUrl}payment/history"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      final res = jsonDecode(response.body);
+      if (res['success'] == true && res['transactions'] != null) {
+        allTransactions = List<Map<String, dynamic>>.from(res['transactions']);
+        filterTransactions();
+      } else {
+        allTransactions = [];
+        filteredTransactions = [];
+      }
+    } catch (e) {
+      print("\u274c Error fetching transactions: $e");
+      allTransactions = [];
+      filteredTransactions = [];
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
   void filterTransactions() {
     setState(() {
       filteredTransactions = allTransactions.where((tx) {
         final date = DateTime.parse(tx['timestamp']);
-
         final matchesDate = selectedDateRange == null ||
             (date.isAfter(selectedDateRange!.start.subtract(const Duration(days: 1))) &&
                 date.isBefore(selectedDateRange!.end.add(const Duration(days: 1))));
-
         final matchesSearch = searchQuery.isEmpty ||
             tx['invoiceId'].toLowerCase().contains(searchQuery.toLowerCase()) ||
             tx['description'].toLowerCase().contains(searchQuery.toLowerCase()) ||
             tx['accountNo'].toLowerCase().contains(searchQuery.toLowerCase());
-
         final matchesAmount = selectedAmountFilter == 'All' ||
             (selectedAmountFilter == '< \$1' && tx['amount'] < 1) ||
             (selectedAmountFilter == '\$1 - \$5' && tx['amount'] >= 1 && tx['amount'] <= 5) ||
             (selectedAmountFilter == '> \$5' && tx['amount'] > 5);
-
         return matchesDate && matchesSearch && matchesAmount;
       }).toList();
     });
@@ -101,14 +94,49 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     }
   }
 
-  Widget buildStatusChip(String status) {
+  Future<void> exportToPDF() async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.MultiPage(
+        build: (context) => [
+          pw.Header(level: 0, child: pw.Text('Transaction Receipt')),
+          ...filteredTransactions.map((tx) {
+            final timestamp = DateTime.parse(tx['timestamp']);
+            return pw.Container(
+              padding: const pw.EdgeInsets.symmetric(vertical: 6),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text("Invoice: ${tx['invoiceId']}"),
+                  pw.Text("Amount: \$${tx['amount'].toStringAsFixed(2)}"),
+                  pw.Text("Status: ${tx['status']}"),
+                  pw.Text("Account No: ${tx['accountNo']}"),
+                  pw.Text("Date: ${DateFormat('MMM dd, yyyy - hh:mm a').format(timestamp)}"),
+                  pw.Text("Description: ${tx['description']}"),
+                  pw.Divider(),
+                ],
+              ),
+            );
+          }).toList()
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) => pdf.save());
+  }
+
+  String normalizeStatus(String? raw) => (raw ?? 'pending').toLowerCase();
+
+  Widget buildStatusChip(String? status) {
+    final normalized = normalizeStatus(status);
     Color color;
     String text;
 
-    switch (status.toLowerCase()) {
-      case 'completed':
+    switch (normalized) {
+      case 'success':
         color = Colors.green;
-        text = 'COMPLETED';
+        text = 'SUCCESS';
         break;
       case 'failed':
         color = Colors.red;
@@ -120,7 +148,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         break;
       default:
         color = Colors.grey;
-        text = 'UNKNOWN';
+        text = normalized.toUpperCase();
     }
 
     return Container(
@@ -141,6 +169,20 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     );
   }
 
+  Icon getStatusIcon(String? status) {
+    final normalized = normalizeStatus(status);
+    switch (normalized) {
+      case 'success':
+        return const Icon(Icons.check_circle, color: Colors.green);
+      case 'failed':
+        return const Icon(Icons.cancel, color: Colors.red);
+      case 'pending':
+        return const Icon(Icons.hourglass_bottom, color: Colors.orange);
+      default:
+        return const Icon(Icons.help_outline, color: Colors.grey);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -149,17 +191,24 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         title: const Text("Transaction History"),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (widget.backRoute != null) {
+              Get.off(widget.backRoute!);
+            } else {
+              Get.back();
+            }
+          },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_alt),
-            onPressed: showDateFilter,
-          )
+          IconButton(icon: const Icon(Icons.picture_as_pdf, color: Colors.white), onPressed: exportToPDF),
+          IconButton(icon: const Icon(Icons.filter_alt, color: Colors.white), onPressed: showDateFilter),
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.white), onPressed: fetchTransactions),
         ],
       ),
       backgroundColor: const Color(0xFFF5F5F5),
-      body: Column(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -205,8 +254,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               itemCount: filteredTransactions.length,
               itemBuilder: (context, index) {
                 final tx = filteredTransactions[index];
-                final date = DateFormat('MMM dd, yyyy - hh:mm a').format(DateTime.parse(tx['timestamp']));
-                final status = tx['status'] ?? 'pending';
+                final date = DateFormat('MMM dd, yyyy - hh:mm a')
+                    .format(DateTime.parse(tx['timestamp']));
+                final status = tx['status'];
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
@@ -223,17 +273,20 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.receipt_long, color: Color(0xFF3E3EFF)),
+                          getStatusIcon(status),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text("Invoice: ${tx['invoiceId']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            child: Text(
+                              "Invoice: ${tx['invoiceId']}",
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
                           ),
                           Text(
                             "\$${tx['amount'].toStringAsFixed(2)}",
                             style: TextStyle(
-                              color: status == 'failed'
+                              color: normalizeStatus(status) == 'failed'
                                   ? Colors.red
-                                  : status == 'pending'
+                                  : normalizeStatus(status) == 'pending'
                                   ? Colors.orange
                                   : Colors.green,
                               fontWeight: FontWeight.bold,

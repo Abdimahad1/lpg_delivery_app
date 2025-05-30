@@ -29,6 +29,8 @@ dependencies:
   shared_preferences: ^2.2.2
   permission_handler: ^11.0.1
   location: ^5.0.0
+  pdf: ^3.10.4
+  printing: ^5.11.0
 
 
 

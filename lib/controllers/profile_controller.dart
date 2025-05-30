@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_connect/http/src/response/response.dart' as http;
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -11,7 +10,6 @@ import 'package:latlong2/latlong.dart' as latlng;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/http_service.dart';
 import '../config/api_config.dart';
-import '../customerUI/home.dart';
 
 class ProfileController extends GetxController {
   final storage = const FlutterSecureStorage();
@@ -27,6 +25,7 @@ class ProfileController extends GetxController {
   final picker = ImagePicker();
   final Rx<File?> profileImage = Rx<File?>(null);
 
+  final RxString userId = ''.obs;
   final RxString profileImageUrl = ''.obs;
   final RxString userName = ''.obs;
   final RxString userAddress = ''.obs;
@@ -37,7 +36,6 @@ class ProfileController extends GetxController {
 
   final RxDouble latitude = 0.0.obs;
   final RxDouble longitude = 0.0.obs;
-
   final Rx<latlng.LatLng?> selectedLocation = Rx<latlng.LatLng?>(null);
   final RxString selectedAddress = "".obs;
 
@@ -59,22 +57,25 @@ class ProfileController extends GetxController {
 
   Future<void> _loadTokenAndFetchProfile() async {
     try {
-      final token = await storage.read(key: 'authToken');
+      String? token = await storage.read(key: 'authToken');
+      final prefs = await SharedPreferences.getInstance();
+
+      // Fallback to shared preferences
       if (token == null || token.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        final fallbackToken = prefs.getString('authToken');
-        if (fallbackToken != null && fallbackToken.isNotEmpty) {
-          await storage.write(key: 'authToken', value: fallbackToken);
+        token = prefs.getString('authToken');
+        if (token != null && token.isNotEmpty) {
+          await storage.write(key: 'authToken', value: token);
         }
       }
-      final finalToken = await storage.read(key: 'authToken');
-      if (finalToken != null && finalToken.isNotEmpty) {
-        _authToken.value = finalToken;
+
+      if (token != null && token.isNotEmpty) {
+        _authToken.value = token;
         fetchProfile();
         isCartInitialized.value = true;
+        print("✅ Token loaded: $token");
       }
     } catch (e) {
-      print('Error loading token: $e');
+      print("❌ Error loading token: $e");
     }
   }
 
@@ -84,6 +85,7 @@ class ProfileController extends GetxController {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('authToken', token);
     isCartInitialized.value = true;
+    print("✅ Token saved");
   }
 
   Future<void> clearAuthToken() async {
@@ -92,17 +94,7 @@ class ProfileController extends GetxController {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('authToken');
     isCartInitialized.value = false;
-  }
-
-  void showSnackbar(String title, String message, {bool isError = true}) {
-    Get.snackbar(
-      title,
-      message,
-      backgroundColor: isError ? Colors.red : Colors.green,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 3),
-    );
+    print("🔓 Token cleared");
   }
 
   Future<void> fetchProfile() async {
@@ -115,16 +107,16 @@ class ProfileController extends GetxController {
     try {
       final res = await httpService.get('profile');
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true) {
-          _updateProfileData(body['data']);
+        final json = jsonDecode(res.body);
+        if (json['success'] == true) {
+          _updateProfileData(json['data']);
         } else {
-          showSnackbar("Error", body['message'] ?? "Profile fetch failed");
+          showSnackbar("Error", json['message'] ?? "Failed to fetch profile");
         }
       } else if (res.statusCode == 401) {
         await logout();
       } else {
-        showSnackbar("Error", "Unexpected response: ${res.statusCode}");
+        showSnackbar("Error", "Unexpected error: ${res.statusCode}");
       }
     } catch (e) {
       showSnackbar("Error", "Something went wrong: $e");
@@ -140,22 +132,21 @@ class ProfileController extends GetxController {
     emailController.text = data['email'] ?? '';
     addressController.text = data['address'] ?? '';
     userAddress.value = data['address'] ?? '';
-    profileImageUrl.value = data['profileImage'] ?? '';
     shopNameController.text = data['shopName'] ?? '';
+    profileImageUrl.value = data['profileImage'] ?? '';
+    userId.value = data['_id'] ?? '';
 
-    final coord = data['coordinates'];
-    latitude.value = coord?['lat']?.toDouble() ?? 0.0;
-    longitude.value = coord?['lng']?.toDouble() ?? 0.0;
-
-    final notif = data['notifications'] ?? {};
-    notifications.assignAll({
-      "email": notif['email'] ?? true,
-      "inApp": notif['inApp'] ?? true,
-      "sms": notif['sms'] ?? true,
-    });
+    latitude.value = data['coordinates']?['lat']?.toDouble() ?? 0.0;
+    longitude.value = data['coordinates']?['lng']?.toDouble() ?? 0.0;
 
     selectedLocation.value = latlng.LatLng(latitude.value, longitude.value);
     selectedAddress.value = userAddress.value;
+
+    notifications.assignAll({
+      "email": data['notifications']?['email'] ?? true,
+      "inApp": data['notifications']?['inApp'] ?? true,
+      "sms": data['notifications']?['sms'] ?? true,
+    });
   }
 
   Future<void> updateProfile() async {
@@ -187,16 +178,13 @@ class ProfileController extends GetxController {
       final json = jsonDecode(res.body);
 
       if (res.statusCode == 200 && json['success'] == true) {
-        userName.value = nameController.text.trim();
-        userAddress.value = fullAddress;
-        selectedAddress.value = fullAddress;
-        selectedLocation.value = latlng.LatLng(latitude.value, longitude.value);
-        showSnackbar("Success", "Profile updated successfully", isError: false);
+        _updateProfileData(json['data']);
+        showSnackbar("Success", "Profile updated", isError: false);
       } else {
         showSnackbar("Error", json['message'] ?? "Update failed");
       }
     } catch (e) {
-      showSnackbar("Error", "Something went wrong: $e");
+      showSnackbar("Error", "Update error: $e");
     } finally {
       isLoading.value = false;
     }
@@ -233,7 +221,7 @@ class ProfileController extends GetxController {
         showSnackbar("Error", json['message'] ?? "Upload failed");
       }
     } catch (e) {
-      showSnackbar("Error", "Something went wrong: $e");
+      showSnackbar("Error", "Upload error: $e");
     } finally {
       isLoading.value = false;
     }
@@ -253,10 +241,10 @@ class ProfileController extends GetxController {
     shopNameController.clear();
     userName.value = '';
     userAddress.value = '';
-    latitude.value = 0.0;
-    longitude.value = 0.0;
     profileImage.value = null;
     profileImageUrl.value = '';
+    latitude.value = 0.0;
+    longitude.value = 0.0;
     notifications.assignAll({"email": true, "inApp": true, "sms": true});
   }
 
@@ -276,10 +264,28 @@ class ProfileController extends GetxController {
         final data = jsonDecode(response.body);
         nearbyVendors.assignAll(List<Map<String, dynamic>>.from(data['data']));
       } else {
-        vendorFetchError.value = 'Failed to fetch vendors: ${response.body}';
+        vendorFetchError.value = 'Failed: ${response.body}';
       }
     } catch (e) {
-      vendorFetchError.value = 'Error fetching nearby vendors: $e';
+      vendorFetchError.value = 'Error: $e';
+    }
+  }
+
+  Future<Map<String, dynamic>?> getVendorProfile(String vendorId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('${baseUrl}profile/$vendorId'),
+        headers: {'Authorization': 'Bearer $authToken'},
+      );
+
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        return json['data'];
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching vendor profile: $e');
+      return null;
     }
   }
 
@@ -293,26 +299,15 @@ class ProfileController extends GetxController {
     fetchNearbyVendors();
   }
 
-  Future<Map<String, dynamic>?> getVendorProfile(String vendorId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('${baseUrl}profile/$vendorId'),
-        headers: {
-          'Authorization': 'Bearer $authToken',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          return data['data'];
-        }
-      }
-      return null;
-    } catch (e) {
-      print('Error fetching vendor profile: $e');
-      return null;
-    }
+  void showSnackbar(String title, String message, {bool isError = true}) {
+    Get.snackbar(
+      title,
+      message,
+      backgroundColor: isError ? Colors.red : Colors.green,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 3),
+    );
   }
 
   @override

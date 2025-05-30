@@ -18,6 +18,8 @@ class CartItem {
   final String productId;
   final String vendorId;
   final String vendorPhone;
+  final String vendorName;
+
 
   CartItem({
     this.id,
@@ -29,21 +31,25 @@ class CartItem {
     required this.productId,
     required this.vendorId,
     required this.vendorPhone,
+    required this.vendorName,
+
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
       id: json['_id'],
-      title: json['title'],
+      title: json['title'] ?? '',
       price: (json['price'] as num).toDouble(),
-      location: json['location'],
-      imagePath: json['imagePath'],
-      quantity: json['quantity'],
-      productId: json['productId'],
-      vendorId: json['vendorId'],
+      location: json['location'] ?? 'Unknown',
+      imagePath: json['imagePath'] ?? '',
+      quantity: json['quantity'] ?? 1,
+      productId: json['productId'] ?? '',
+      vendorId: json['vendorId'] ?? '',
       vendorPhone: json['vendorPhone'] ?? '',
+      vendorName: json['vendorName'] ?? 'Unknown Vendor', // ✅ FIX
     );
   }
+
 
   Map<String, dynamic> toJson() {
     return {
