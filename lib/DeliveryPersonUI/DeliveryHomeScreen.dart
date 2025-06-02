@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 
+import 'DeliveryHistoryScreen.dart';
 import 'NewTasksScreen.dart';
 
 class DeliveryHomeScreen extends StatelessWidget {
@@ -17,20 +18,14 @@ class DeliveryHomeScreen extends StatelessWidget {
           child: Column(
             children: [
               // Top header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text("Home", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  Icon(Icons.notifications_active, color: Colors.orange, size: 28),
-                ],
-              ),
+
               const SizedBox(height: 30),
 
               // Delivery image
               Center(
                 child: Image.asset(
                   "assets/images/delivery.png", // Replace with your own image
-                  height: 150,
+                  height: 320,
                 ),
               ),
               const SizedBox(height: 20),
@@ -49,8 +44,8 @@ class DeliveryHomeScreen extends StatelessWidget {
 
               // Buttons
               Wrap(
-                spacing: 20,
-                runSpacing: 20,
+                spacing: 50,
+                runSpacing: 50,
                 alignment: WrapAlignment.center,
                 children: [
                   _buildActionButton(
@@ -61,22 +56,14 @@ class DeliveryHomeScreen extends StatelessWidget {
                       Get.to(() => const NewTasksScreen()); // ✅ Navigate to New Tasks
                     },
                   ),
-                  _buildActionButton(
-                    color: Colors.blue,
-                    icon: Icons.my_location,
-                    label: "Track Delivery",
-                    onTap: () {
-                      // Replace with your actual screen
-                    //  Get.to(() => const TrackDeliveryScreen());
-                    },
-                  ),
+
                   _buildActionButton(
                     color: Colors.purple,
                     icon: Icons.history,
                     label: "History",
                     onTap: () {
                       // Replace with your actual screen
-                    //  Get.to(() => const DeliveryHistoryScreen());
+                     Get.to(() => const DeliveryHistoryScreen());
                     },
                   ),
                 ],

@@ -14,21 +14,31 @@ class VendorOrdersScreen extends StatefulWidget {
   State<VendorOrdersScreen> createState() => _VendorOrdersScreenState();
 }
 
-class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
+class _VendorOrdersScreenState extends State<VendorOrdersScreen>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> allOrders = [];
-  List<Map<String, dynamic>> filteredOrders = [];
+  List<Map<String, dynamic>> unassignedOrders = [];
+  List<Map<String, dynamic>> acceptedOrders = [];
+  List<Map<String, dynamic>> deliveredOrders = [];
+
+  List<Map<String, dynamic>> allTasks = [];
+  List<Map<String, dynamic>> acceptedTasks = [];
+  List<Map<String, dynamic>> deliveredTasks = [];
+
   bool isLoading = true;
-  String filterOption = 'All';
+  late TabController _tabController;
+  String selectedFilter = 'All';
+  final List<String> filters = ['All', 'Today', 'This Week'];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     fetchVendorOrders();
   }
 
   Future<void> fetchVendorOrders() async {
     setState(() => isLoading = true);
-
     try {
       final profileController = Get.find<ProfileController>();
       final token = profileController.authToken;
@@ -41,11 +51,10 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
       final res = jsonDecode(response.body);
       if (res['success'] == true && res['transactions'] != null) {
         allOrders = List<Map<String, dynamic>>.from(res['transactions'] ?? []);
-        applyFilter();
-      } else {
-        allOrders = [];
-        filteredOrders = [];
       }
+
+      await fetchAllTasks();
+      applyFilter();
     } catch (e) {
       print("❌ Vendor Orders Fetch Error: $e");
     } finally {
@@ -53,41 +62,131 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
     }
   }
 
+  Future<void> fetchAllTasks() async {
+    try {
+      final profileController = Get.find<ProfileController>();
+      final token = profileController.authToken;
+
+      final response = await http.get(
+        Uri.parse("${baseUrl}tasks/all"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      final res = jsonDecode(response.body);
+      if (res['success'] == true && res['data'] != null) {
+        allTasks = List<Map<String, dynamic>>.from(res['data']);
+        acceptedTasks = allTasks.where((task) => task['status'] == 'Accepted').toList();
+        deliveredTasks = allTasks.where((task) => task['status'] == 'Delivered').toList();
+      }
+    } catch (e) {
+      print("❌ Fetch all tasks error: $e");
+    }
+  }
+
   void applyFilter() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
 
-    setState(() {
-      if (filterOption == 'Today') {
-        filteredOrders = allOrders.where((order) {
-          final ts = DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
-          return ts.year == today.year && ts.month == today.month && ts.day == today.day;
-        }).toList();
-      } else if (filterOption == 'This Week') {
-        filteredOrders = allOrders.where((order) {
-          final ts = DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
-          return ts.isAfter(startOfWeek);
-        }).toList();
-      } else {
-        filteredOrders = [...allOrders];
-      }
-    });
+    List<Map<String, dynamic>> filtered = [];
+    if (selectedFilter == 'Today') {
+      filtered = allOrders.where((order) {
+        final ts = DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
+        return ts.year == today.year && ts.month == today.month && ts.day == today.day;
+      }).toList();
+    } else if (selectedFilter == 'This Week') {
+      filtered = allOrders.where((order) {
+        final ts = DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
+        return ts.isAfter(startOfWeek);
+      }).toList();
+    } else {
+      filtered = [...allOrders];
+    }
+
+    unassignedOrders = filtered.where((order) {
+      final orderId = order['_id'];
+      final assignedStatus = allTasks.firstWhereOrNull((task) => task['orderId'] == orderId)?['status'] ?? '';
+      return assignedStatus == '' || assignedStatus == 'Pending';
+    }).toList();
+
+    acceptedOrders = filtered.where((order) {
+      return acceptedTasks.any((task) => task['orderId'] == order['_id']);
+    }).toList();
+
+    deliveredOrders = filtered.where((order) {
+      return deliveredTasks.any((task) => task['orderId'] == order['_id']);
+    }).toList();
+
+    setState(() {});
+  }
+
+  Widget _buildFilterDropdown() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: DropdownButtonFormField<String>(
+        value: selectedFilter,
+        items: filters
+            .map((f) => DropdownMenuItem(value: f, child: Text("Filter: $f")))
+            .toList(),
+        onChanged: (value) {
+          if (value != null) {
+            selectedFilter = value;
+            applyFilter();
+          }
+        },
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+
+  Widget buildTabView(List<Map<String, dynamic>> orders) {
+    return orders.isEmpty
+        ? const Center(child: Text("No orders found"))
+        : RefreshIndicator(
+      onRefresh: fetchVendorOrders,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: orders.length,
+        itemBuilder: (context, index) => _buildOrderCard(orders[index]),
+      ),
+    );
   }
 
   Widget _buildOrderCard(Map<String, dynamic> order) {
     String formattedDate = 'Unknown date';
+    bool isTodayOrder = false;
+
     try {
       if (order['timestamp'] != null) {
-        formattedDate = DateFormat('MMM d, yyyy').format(DateTime.parse(order['timestamp']));
+        final ts = DateTime.parse(order['timestamp']);
+        formattedDate = DateFormat('MMM d, yyyy').format(ts);
+
+        final today = DateTime.now();
+        isTodayOrder = ts.year == today.year &&
+            ts.month == today.month &&
+            ts.day == today.day;
       }
     } catch (_) {}
 
-    final paymentStatus = order['waafiResponse']?['responseMsg']?.toString().toUpperCase() == 'RCS_SUCCESS'
+    final paymentStatus =
+    order['waafiResponse']?['responseMsg']?.toString().toUpperCase() ==
+        'RCS_SUCCESS'
         ? 'RC Success'
         : 'Success';
 
     final amount = (order['amount'] ?? 0).toDouble();
+
+    final deliveryTask = allTasks.firstWhereOrNull(
+          (task) => task['orderId'] == order['_id'],
+    );
+
+    final deliveryPersonName = deliveryTask?['deliveryPersonName'] ?? 'Not assigned';
 
     return GestureDetector(
       onTap: () {
@@ -102,7 +201,9 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))
+          ],
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,19 +227,48 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(order['productTitle'] ?? 'No Title',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          order['productTitle'] ?? 'No Title',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      if (isTodayOrder)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          margin: const EdgeInsets.only(left: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            "NEW",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: 6),
                   if (order['userLocation'] != null)
                     Row(
                       children: [
-                        const Icon(Icons.location_on, size: 16, color: Colors.green),
+                        const Icon(Icons.location_on,
+                            size: 16, color: Colors.green),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             order['userLocation'],
                             style: const TextStyle(
-                                fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87),
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.black87),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -146,12 +276,18 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                       ],
                     ),
                   const SizedBox(height: 4),
+                  Text("Delivery By: $deliveryPersonName",
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.black87)),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 14, color: Colors.blueGrey),
+                      const Icon(Icons.calendar_today,
+                          size: 14, color: Colors.blueGrey),
                       const SizedBox(width: 4),
                       Text(formattedDate,
-                          style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.black54)),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -159,14 +295,18 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                     children: [
                       Icon(Icons.check_circle,
                           size: 16,
-                          color: paymentStatus == 'RC Success' ? Colors.orange : Colors.green),
+                          color: paymentStatus == 'RC Success'
+                              ? Colors.orange
+                              : Colors.green),
                       const SizedBox(width: 4),
                       Text(
                         paymentStatus,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: paymentStatus == 'RC Success' ? Colors.orange : Colors.green,
+                          color: paymentStatus == 'RC Success'
+                              ? Colors.orange
+                              : Colors.green,
                         ),
                       ),
                     ],
@@ -185,36 +325,11 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Icon(Icons.monetization_on, color: Colors.deepPurple, size: 18),
+                const Icon(Icons.monetization_on,
+                    color: Colors.deepPurple, size: 18),
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterDropdown() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: DropdownButtonFormField<String>(
-        value: filterOption,
-        items: const [
-          DropdownMenuItem(value: 'All', child: Text('All Orders')),
-          DropdownMenuItem(value: 'Today', child: Text("Today's Orders")),
-          DropdownMenuItem(value: 'This Week', child: Text("This Week")),
-        ],
-        onChanged: (value) {
-          if (value != null) {
-            filterOption = value;
-            applyFilter();
-          }
-        },
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
@@ -228,7 +343,18 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
         backgroundColor: const Color(0xFF3E3EFF),
         title: const Text("Orders", style: TextStyle(color: Colors.white)),
         centerTitle: true,
-        automaticallyImplyLeading: false,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: [
+            Tab(text: "Unassigned (${unassignedOrders.length})"),
+            Tab(text: "Accepted (${acceptedOrders.length})"),
+            Tab(text: "Delivered (${deliveredOrders.length})"),
+          ],
+        ),
+
         actions: [
           IconButton(
             onPressed: fetchVendorOrders,
@@ -242,18 +368,15 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
         children: [
           _buildFilterDropdown(),
           Expanded(
-            child: filteredOrders.isEmpty
-                ? const Center(child: Text("No orders found for selected filter"))
-                : RefreshIndicator(
-              onRefresh: fetchVendorOrders,
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: filteredOrders.length,
-                itemBuilder: (context, index) =>
-                    _buildOrderCard(filteredOrders[index]),
-              ),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                buildTabView(unassignedOrders),
+                buildTabView(acceptedOrders),
+                buildTabView(deliveredOrders),
+              ],
             ),
-          ),
+          )
         ],
       ),
     );

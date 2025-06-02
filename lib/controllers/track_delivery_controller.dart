@@ -7,7 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:permission_handler/permission_handler.dart' hide PermissionStatus;
-import '../controllers/profile_controller.dart';
+import '../config/api_config.dart'; // contains baseUrl
+import 'profile_controller.dart';
 
 class TrackDeliveryController extends GetxController {
   final deliveryStatus = "Out For Delivery".obs;
@@ -56,13 +57,11 @@ class TrackDeliveryController extends GetxController {
     task = taskData;
     final profileController = Get.find<ProfileController>();
 
-    // Vendor = delivery person
     vendorLocation.value = LatLng(
       profileController.latitude.value,
       profileController.longitude.value,
     );
 
-    // 1. Try productLocation (lat/lng)
     if (task['productLocation'] != null &&
         task['productLocation']['lat'] != null &&
         task['productLocation']['lng'] != null) {
@@ -70,9 +69,7 @@ class TrackDeliveryController extends GetxController {
         task['productLocation']['lat'].toDouble(),
         task['productLocation']['lng'].toDouble(),
       );
-    }
-    // 2. Fallback: Try to geocode the address
-    else if (task['address'] != null) {
+    } else if (task['address'] != null) {
       final coords = await geocodeAddress(task['address']);
       if (coords != null) {
         customerLocation.value = coords;
@@ -105,12 +102,8 @@ class TrackDeliveryController extends GetxController {
       _centerMap();
     } catch (e) {
       debugPrint("Error fetching location: $e");
-      Get.snackbar(
-        "Error",
-        "Could not fetch location: ${e.toString()}",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Get.snackbar("Error", "Could not fetch location: ${e.toString()}",
+          backgroundColor: Colors.red, colorText: Colors.white);
     } finally {
       isRefreshing.value = false;
     }
@@ -124,9 +117,7 @@ class TrackDeliveryController extends GetxController {
     });
 
     try {
-      final response = await http.get(url, headers: {
-        'User-Agent': 'lpg-delivery-app'
-      });
+      final response = await http.get(url, headers: {'User-Agent': 'lpg-delivery-app'});
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -163,16 +154,38 @@ class TrackDeliveryController extends GetxController {
     }
   }
 
-  void markAsDelivered() {
-    deliveryStatus.value = "Delivered";
-    _locationSubscription?.cancel();
-    Get.snackbar(
-      "✅ Success",
-      "Task marked as delivered",
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-    );
+  Future<void> markAsDelivered() async {
+    try {
+      final profileController = Get.find<ProfileController>();
+      final token = profileController.authToken;
+
+      final response = await http.patch(
+        Uri.parse("${baseUrl}tasks/mark-delivered/${task['_id']}"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+      );
+
+      final resData = jsonDecode(response.body);
+      if (response.statusCode == 200 && resData['success'] == true) {
+        deliveryStatus.value = "Delivered";
+        _locationSubscription?.cancel();
+
+        Get.snackbar(
+          "✅ Success",
+          "Task marked as delivered",
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else {
+        throw Exception(resData['message'] ?? "Failed to update status");
+      }
+    } catch (e) {
+      Get.snackbar("Error", "Failed to mark as delivered: $e",
+          backgroundColor: Colors.red, colorText: Colors.white);
+    }
   }
 
   LatLng _getMidpoint(LatLng a, LatLng b) {
@@ -193,10 +206,7 @@ class TrackDeliveryController extends GetxController {
 
   void _centerMap() {
     if (myLocation.value != null && customerLocation.value != null) {
-      mapCenter.value = _getMidpoint(
-        myLocation.value!,
-        customerLocation.value!,
-      );
+      mapCenter.value = _getMidpoint(myLocation.value!, customerLocation.value!);
     } else if (customerLocation.value != null) {
       mapCenter.value = customerLocation.value!;
     } else if (myLocation.value != null) {
@@ -208,6 +218,33 @@ class TrackDeliveryController extends GetxController {
     if (myLocation.value != null) {
       mapCenter.value = myLocation.value!;
       _refreshCounter.value++;
+    }
+  }
+
+  /// ✅ NEW: Send notification to customer
+  Future<Map<String, dynamic>> sendNotification(String message, String customerId) async {
+    final profileController = Get.find<ProfileController>();
+    final token = profileController.authToken;
+
+    try {
+      final response = await http.post(
+        Uri.parse("${baseUrl}notifications/send"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "senderName": "MOG Gas",
+          "message": message,
+          "receiverId": customerId,
+        }),
+      );
+
+      final res = jsonDecode(response.body);
+      return res; // Return the parsed response
+    } catch (e) {
+      debugPrint("Notification send error: $e");
+      rethrow; // Rethrow to be caught in the UI
     }
   }
 }

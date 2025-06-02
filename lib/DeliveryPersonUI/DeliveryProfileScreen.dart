@@ -138,13 +138,36 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen>
                     children: [
                       Obx(() => GestureDetector(
                         onTap: controller.uploadImage,
-                        child: CircleAvatar(
-                          radius: 50,
-                          backgroundImage: controller.profileImage.value != null
-                              ? FileImage(controller.profileImage.value!)
+                        child: ClipOval(
+                          child: controller.profileImage.value != null
+                              ? Image.file(
+                            controller.profileImage.value!,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          )
                               : controller.profileImageUrl.value.isNotEmpty
-                              ? NetworkImage(controller.profileImageUrl.value)
-                              : const AssetImage("assets/images/user.png") as ImageProvider,
+                              ? FadeInImage(
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            placeholder: const AssetImage("assets/images/user.png"),
+                            image: NetworkImage(controller.profileImageUrl.value),
+                            imageErrorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                "assets/images/user.png",
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          )
+                              : Image.asset(
+                            "assets/images/user.png",
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       )),
                       Positioned(
@@ -165,6 +188,7 @@ class _DeliveryProfileScreenState extends State<DeliveryProfileScreen>
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 10),
                   Obx(() => Text(
                     controller.userName.value.isEmpty

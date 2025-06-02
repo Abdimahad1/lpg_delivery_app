@@ -25,6 +25,7 @@ class ProfileController extends GetxController {
   final picker = ImagePicker();
   final Rx<File?> profileImage = Rx<File?>(null);
 
+
   final RxString userId = ''.obs;
   final RxString profileImageUrl = ''.obs;
   final RxString userName = ''.obs;
@@ -49,10 +50,34 @@ class ProfileController extends GetxController {
   final RxList<Map<String, dynamic>> nearbyVendors = <Map<String, dynamic>>[].obs;
   final RxString vendorFetchError = ''.obs;
 
+  final RxInt unreadNotificationCount = 0.obs;
+
   @override
   void onInit() {
     super.onInit();
     _loadTokenAndFetchProfile();
+    fetchNotificationCount();
+  }
+
+  Future<void> fetchNotificationCount() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${baseUrl}notifications/my'), // ✅ Use the endpoint that returns notifications for the logged-in user
+        headers: {"Authorization": "Bearer $authToken"},
+      );
+
+
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        final List notifications = json['data'] ?? [];
+        unreadNotificationCount.value = notifications.where((n) => n['isRead'] == false).length;
+      } else {
+        unreadNotificationCount.value = 0;
+      }
+    } catch (e) {
+      unreadNotificationCount.value = 0;
+      print("Failed to fetch notification count: $e");
+    }
   }
 
   Future<void> _loadTokenAndFetchProfile() async {

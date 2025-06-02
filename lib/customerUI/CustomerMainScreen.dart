@@ -62,7 +62,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
           ? const Text("🔔 Notifications",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
           : Obx(() => SizedBox(
-        width: MediaQuery.of(context).size.width * 0.6, // Limit width
+        width: MediaQuery.of(context).size.width * 0.6,
         child: Row(
           children: [
             const Icon(Icons.location_on, color: Colors.white, size: 20),
@@ -75,7 +75,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: 14, // Smaller font size
+                  fontSize: 14,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -87,10 +87,33 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
       actions: _selectedIndex == 3
           ? []
           : [
-        IconButton(
-          icon: const Icon(Icons.notifications, color: Colors.white),
-          onPressed: () => setState(() => _selectedIndex = 3),
-        ),
+        Obx(() {
+          final unreadCount = _profileController.unreadNotificationCount.value;
+          return Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications, color: Colors.white),
+                onPressed: () => setState(() => _selectedIndex = 3),
+              ),
+              if (unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      unreadCount.toString(),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        }),
         IconButton(
           icon: const Icon(Icons.search, color: Colors.white),
           onPressed: () => setState(() => _selectedIndex = 1),
@@ -120,6 +143,7 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
         children: List.generate(_icons.length, (index) {
           final isActive = _selectedIndex == index;
           final isCart = index == 2;
+          final isNotification = index == 3;
 
           return GestureDetector(
             onTap: () {
@@ -141,7 +165,13 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                     color: isActive ? Colors.white : Colors.transparent,
                     shape: BoxShape.circle,
                     boxShadow: isActive
-                        ? [BoxShadow(color: Colors.black26, blurRadius: 6, offset: const Offset(0, 3))]
+                        ? [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      )
+                    ]
                         : [],
                   ),
                   child: Icon(
@@ -153,6 +183,30 @@ class _CustomerMainScreenState extends State<CustomerMainScreen> {
                 if (isCart)
                   Obx(() {
                     final count = _cartController.cartItems.length;
+                    if (count == 0) return const SizedBox();
+                    return Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          count.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                if (isNotification)
+                  Obx(() {
+                    final count = _profileController.unreadNotificationCount.value;
                     if (count == 0) return const SizedBox();
                     return Positioned(
                       right: 0,

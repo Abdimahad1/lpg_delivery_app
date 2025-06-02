@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -37,6 +38,19 @@ class PayScreen extends StatefulWidget {
 class _PayScreenState extends State<PayScreen> {
   final TextEditingController _accountNoController = TextEditingController();
   bool _hasTriedPayment = false;
+  Timer? _countdownTimer;
+  int _secondsLeft = 60;
+
+  void _startCountdown() {
+    _secondsLeft = 60;
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() => _secondsLeft--);
+      if (_secondsLeft <= 0) {
+        timer.cancel();
+      }
+    });
+  }
 
   void _showSnack(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -51,7 +65,7 @@ class _PayScreenState extends State<PayScreen> {
   }
 
   void _showPhonePopup(BuildContext context) {
-    if (_hasTriedPayment) return; // ⛔ Prevent showing if already in progress
+    if (_hasTriedPayment) return;
 
     _accountNoController.clear();
     setState(() => _hasTriedPayment = false);
@@ -120,18 +134,38 @@ class _PayScreenState extends State<PayScreen> {
       return;
     }
 
-    Navigator.pop(dialogContext); // Close the phone input dialog
+    Navigator.pop(dialogContext);
+
+    _startCountdown();
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 20),
+              const Text(
+                "📲 Waiting for you to confirm the payment on your phone...",
+                style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text("⏳ $_secondsLeft seconds left", style: const TextStyle(color: Colors.grey))
+            ],
+          ),
+        ),
+      ),
     );
 
     try {
       final profileController = Get.find<ProfileController>();
       final token = profileController.authToken;
-
       final invoiceId = "INV-${DateTime.now().millisecondsSinceEpoch}";
 
       final paymentPayload = {
@@ -156,7 +190,8 @@ class _PayScreenState extends State<PayScreen> {
         body: jsonEncode(paymentPayload),
       );
 
-      if (context.mounted) Navigator.pop(context); // Close loading spinner
+      if (context.mounted) Navigator.pop(context);
+      _countdownTimer?.cancel();
 
       final res = jsonDecode(response.body);
       final success = res['success'] == true;
@@ -168,7 +203,6 @@ class _PayScreenState extends State<PayScreen> {
 
       setState(() => _hasTriedPayment = false);
 
-      // Redirect regardless of result
       Future.delayed(const Duration(seconds: 2), () {
         if (context.mounted) {
           Get.off(() => const TransactionHistoryScreen());
@@ -177,11 +211,10 @@ class _PayScreenState extends State<PayScreen> {
 
     } catch (e) {
       if (context.mounted) Navigator.pop(context);
+      _countdownTimer?.cancel();
       _showSnack("❌ Error: ${e.toString()}", Colors.red);
-      print("Payment error details: $e");
       setState(() => _hasTriedPayment = false);
 
-      // Redirect on error too
       Future.delayed(const Duration(seconds: 2), () {
         if (context.mounted) {
           Get.off(() => const TransactionHistoryScreen());
@@ -189,7 +222,6 @@ class _PayScreenState extends State<PayScreen> {
       });
     }
   }
-
 
   Widget _buildPaymentOption(BuildContext context, String imagePath, String label) {
     return InkWell(
@@ -245,6 +277,12 @@ class _PayScreenState extends State<PayScreen> {
   void initState() {
     super.initState();
     _hasTriedPayment = false;
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
   }
 
   @override

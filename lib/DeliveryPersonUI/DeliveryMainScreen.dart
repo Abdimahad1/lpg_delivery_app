@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'DeliveryHistoryScreen.dart';
 import 'DeliveryHomeScreen.dart';
 import 'DeliveryProfileScreen.dart';
 import 'DeliveryTasksScreen.dart';
 
 class DeliveryMainScreen extends StatefulWidget {
-  const DeliveryMainScreen({super.key});
+  final int initialTabIndex;
+
+  const DeliveryMainScreen({super.key, this.initialTabIndex = 0}); // 👈 support custom start tab
 
   @override
   State<DeliveryMainScreen> createState() => _DeliveryMainScreenState();
 }
 
 class _DeliveryMainScreenState extends State<DeliveryMainScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTabIndex; // 👈 initialize from passed value
+  }
 
   final List<Widget> _screens = [
     const DeliveryHomeScreen(),

@@ -12,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final LoginController controller = Get.put(LoginController());
   final _formKey = GlobalKey<FormState>();
+  bool _isPasswordVisible = false;
 
   @override
   void initState() {
@@ -114,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildPasswordField() {
     return TextFormField(
       controller: controller.passwordController,
-      obscureText: true,
+      obscureText: !_isPasswordVisible,
       decoration: InputDecoration(
         hintText: "Enter your Password",
         filled: true,
@@ -124,6 +125,17 @@ class _LoginScreenState extends State<LoginScreen> {
           borderSide: BorderSide.none,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+            color: Colors.grey,
+          ),
+          onPressed: () {
+            setState(() {
+              _isPasswordVisible = !_isPasswordVisible;
+            });
+          },
+        ),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -136,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
   }
-
 
   Widget _buildRoleDropdown() {
     return Obx(() => DropdownButtonFormField<String>(

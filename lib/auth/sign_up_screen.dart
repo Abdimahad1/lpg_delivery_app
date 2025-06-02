@@ -12,6 +12,7 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final SignupController controller = Get.put(SignupController());
   final _formKey = GlobalKey<FormState>();
+  bool _isPasswordVisible = false;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +96,9 @@ class _SignupScreenState extends State<SignupScreen> {
         if (value == null || value.isEmpty) {
           return 'Please enter your name';
         }
+        if (RegExp(r'\d').hasMatch(value)) {
+          return 'Name cannot contain numbers';
+        }
         return null;
       },
     );
@@ -105,7 +109,7 @@ class _SignupScreenState extends State<SignupScreen> {
       controller: controller.phoneController,
       keyboardType: TextInputType.phone,
       decoration: InputDecoration(
-        hintText: "Enter your Phone Number",
+        hintText: "Enter your Phone Number (e.g., 611111111 or 0611111111)",
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
@@ -117,6 +121,9 @@ class _SignupScreenState extends State<SignupScreen> {
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter your phone number';
+        }
+        if (!RegExp(r'^\d{9}$').hasMatch(value) && !RegExp(r'^\d{10}$').hasMatch(value)) {
+          return 'Phone number must be 9 or 10 digits';
         }
         return null;
       },
@@ -152,7 +159,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildPasswordField() {
     return TextFormField(
       controller: controller.passwordController,
-      obscureText: true,
+      obscureText: !_isPasswordVisible,
       decoration: InputDecoration(
         hintText: "Enter your Password",
         filled: true,
@@ -162,6 +169,17 @@ class _SignupScreenState extends State<SignupScreen> {
           borderSide: BorderSide.none,
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+            color: Colors.grey,
+          ),
+          onPressed: () {
+            setState(() {
+              _isPasswordVisible = !_isPasswordVisible;
+            });
+          },
+        ),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {

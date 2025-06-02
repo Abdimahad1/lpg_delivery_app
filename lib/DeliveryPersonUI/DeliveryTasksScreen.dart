@@ -1,142 +1,166 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../controllers/task_controller.dart';
+import 'TrackDeliveryScreen.dart';
+import 'DeliveryMainScreen.dart';
 
-class Task {
-  final String product;
-  final String customer;
-  final String address;
-  final String date;
-  final String status;
+class DeliveryTasksScreen extends StatefulWidget {
+  final int? returnTabIndex;
 
-  const Task({
-    required this.product,
-    required this.customer,
-    required this.address,
-    required this.date,
-    required this.status,
-  });
+  const DeliveryTasksScreen({super.key, this.returnTabIndex});
+
+  @override
+  State<DeliveryTasksScreen> createState() => _DeliveryTasksScreenState();
 }
 
-class DeliveryTasksScreen extends StatelessWidget {
-  const DeliveryTasksScreen({Key? key}) : super(key: key);
+class _DeliveryTasksScreenState extends State<DeliveryTasksScreen> {
+  final TaskController controller = Get.put(TaskController());
 
-  static const List<Task> allTasks = [
-    Task(
-      product: '6kg Cylinder',
-      customer: 'Abdi Hussein',
-      address: 'Hodan-Taleex-Mog-Som',
-      date: 'May-21-2025',
-      status: 'Pending',
-    ),
-    Task(
-      product: '6kg Cylinder',
-      customer: 'Abdi Hassan',
-      address: 'Hodan-Taleex-Mog-Som',
-      date: 'May-19-2025',
-      status: 'Pending',
-    ),
-    Task(
-      product: '6kg Cylinder',
-      customer: 'Abdi Ali',
-      address: 'Hodan-Taleex-Mog-Som',
-      date: 'May-18-2025',
-      status: 'Pending',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    controller.fetchMyTasks();
+  }
+
+  Color getStatusColor(String status) {
+    switch (status) {
+      case 'Accepted':
+        return Colors.green;
+      case 'Rejected':
+        return Colors.red;
+      case 'Delivered':
+        return Colors.blue;
+      default:
+        return Colors.orange;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final List<Task> pendingTasks =
-    allTasks.where((t) => t.status == 'Pending').toList();
-
     return Scaffold(
       backgroundColor: const Color(0xFFFFEBEE),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          "Tasks",
-          style: TextStyle(color: Colors.black, fontSize: 24),
-        ),
+        title: const Text("Delivery Tasks", style: TextStyle(color: Colors.black)),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            if (widget.returnTabIndex != null) {
+              Get.offAll(() => DeliveryMainScreen(initialTabIndex: widget.returnTabIndex!));
+            } else {
+              Get.back();
+            }
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: () async {
+              await controller.fetchMyTasks();
+              setState(() {});
+            },
+          ),
+        ],
       ),
-      body: pendingTasks.isEmpty
-          ? const Center(child: Text("No pending tasks."))
-          : ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        itemCount: pendingTasks.length,
-        itemBuilder: (context, index) {
-          final task = pendingTasks[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/images/cylinder.png',
-                  width: 50,
-                  height: 50,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(task.product,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                      Text(task.customer,
-                          style: const TextStyle(fontSize: 14)),
-                      Text(task.address,
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey)),
-                    ],
+      body: Obx(() {
+        final tasks = controller.tasks;
+
+        if (tasks.isEmpty) {
+          return const Center(child: Text("No delivery tasks found."));
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            await controller.fetchMyTasks();
+            setState(() {});
+          },
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: tasks.length,
+            itemBuilder: (context, index) {
+              final task = tasks[index];
+              final status = task['status'] ?? 'Pending';
+              final statusColor = getStatusColor(status);
+              final isAccepted = status == 'Accepted';
+
+              return GestureDetector(
+                onTap: isAccepted
+                    ? () async {
+                  await Get.to(() => const TrackDeliveryScreen(), arguments: task);
+                  await controller.fetchMyTasks(); // 🔁 Refresh after return
+                  setState(() {});
+                }
+                    : null,
+                child: Opacity(
+                  opacity: isAccepted ? 1.0 : 0.6,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border(left: BorderSide(color: statusColor, width: 5)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Image.asset(
+                          'assets/images/cylinder.png',
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(task['product']?.toString() ?? '-',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              const SizedBox(height: 4),
+                              Text(task['customer']?.toString() ?? '-', style: const TextStyle(fontSize: 14)),
+                              Text(task['address']?.toString() ?? '-',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Text("Status: ",
+                                      style: TextStyle(fontWeight: FontWeight.w500)),
+                                  Text(
+                                    status,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (status == 'Delivered') ...[
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.check_circle, color: Colors.green),
+                                  ],
+                                ],
+                              ),
+
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(task.date,
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(
-                              color: Colors.black12,
-                              offset: Offset(2, 2),
-                              blurRadius: 4)
-                        ],
-                      ),
-                      child: const Text(
-                        "Pending",
-                        style:
-                        TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    )
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      }),
     );
   }
 }

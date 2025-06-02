@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart';
 import '../../controllers/profile_controller.dart';
 
@@ -25,6 +27,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   final quantityController = TextEditingController();
   final imageController = TextEditingController();
 
+  File? _selectedImage;
   String? _currentProductId;
 
   @override
@@ -79,17 +82,52 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+        imageController.clear(); // Clear URL field when selecting from gallery
+      });
+    }
+  }
+
+  Future<String> _convertImageToBase64(File image) async {
+    final bytes = await image.readAsBytes();
+    return base64Encode(bytes);
+  }
+
   Future<void> addProduct() async {
     isAdding.value = true;
     final token = Get.find<ProfileController>().authToken;
-    final imageData = imageController.text.trim();
+    String imageData = '';
 
-    if (!imageData.startsWith('data:image/') &&
-        !(Uri.tryParse(imageData)?.hasAbsolutePath ?? false) &&
-        !imageData.contains('gstatic.com')) {
-      Get.snackbar("Error", "Enter a valid image URL or Base64 image data");
-      isAdding.value = false;
-      return;
+    // Handle image from gallery
+    if (_selectedImage != null) {
+      try {
+        imageData = 'data:image/jpeg;base64,${await _convertImageToBase64(_selectedImage!)}';
+      } catch (e) {
+        Get.snackbar("Error", "Failed to process image");
+        isAdding.value = false;
+        return;
+      }
+    }
+    // Handle image from URL or base64
+    else {
+      imageData = imageController.text.trim();
+      if (imageData.isEmpty) {
+        Get.snackbar("Error", "Please provide an image");
+        isAdding.value = false;
+        return;
+      }
+
+      if (!imageData.startsWith('data:image/') &&
+          !(Uri.tryParse(imageData)?.hasAbsolutePath ?? false) &&
+          !imageData.contains('gstatic.com')) {
+        Get.snackbar("Error", "Enter a valid image URL or select from gallery");
+        isAdding.value = false;
+        return;
+      }
     }
 
     try {
@@ -126,7 +164,35 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   Future<void> updateProduct() async {
     isUpdating.value = true;
     final token = Get.find<ProfileController>().authToken;
-    final imageData = imageController.text.trim();
+    String imageData = '';
+
+    // Handle image from gallery
+    if (_selectedImage != null) {
+      try {
+        imageData = 'data:image/jpeg;base64,${await _convertImageToBase64(_selectedImage!)}';
+      } catch (e) {
+        Get.snackbar("Error", "Failed to process image");
+        isUpdating.value = false;
+        return;
+      }
+    }
+    // Handle image from URL or base64
+    else {
+      imageData = imageController.text.trim();
+      if (imageData.isEmpty) {
+        Get.snackbar("Error", "Please provide an image");
+        isUpdating.value = false;
+        return;
+      }
+
+      if (!imageData.startsWith('data:image/') &&
+          !(Uri.tryParse(imageData)?.hasAbsolutePath ?? false) &&
+          !imageData.contains('gstatic.com')) {
+        Get.snackbar("Error", "Enter a valid image URL or select from gallery");
+        isUpdating.value = false;
+        return;
+      }
+    }
 
     try {
       final response = await http.put(
@@ -188,6 +254,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     priceController.clear();
     quantityController.clear();
     imageController.clear();
+    _selectedImage = null;
     _currentProductId = null;
   }
 
@@ -199,6 +266,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
         title: const Text("Add Product"),
         content: SingleChildScrollView(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
@@ -219,14 +287,46 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                 decoration: const InputDecoration(labelText: "Price"),
                 keyboardType: TextInputType.number,
               ),
-              TextField(
-                controller: imageController,
-                decoration: const InputDecoration(
-                  labelText: "Image URL or Base64",
-                  hintText: "Paste a valid image URL or Base64 data...",
-                ),
-                maxLines: 3,
+              const SizedBox(height: 10),
+              const Text("Image Source", style: TextStyle(fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: imageController,
+                      decoration: const InputDecoration(
+                        labelText: "Image URL",
+                        hintText: "Paste image URL...",
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.photo_library),
+                    onPressed: _pickImage,
+                    tooltip: "Pick from gallery",
+                  ),
+                ],
               ),
+              if (_selectedImage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  "Selected image from gallery",
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const SizedBox(height: 5),
+                Container(
+                  height: 100,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _selectedImage = null),
+                  child: const Text("Remove image", style: TextStyle(color: Colors.red)),
+                ),
+              ],
             ],
           ),
         ),
@@ -253,57 +353,150 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     quantityController.text = product['quantity'].toString();
     priceController.text = product['price'].toString();
     imageController.text = product['image'];
+    _selectedImage = null;
 
     showDialog(
       context: context,
-      builder: (_) => Obx(() => AlertDialog(
-        title: const Text("Update Product"),
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: "Product Name"),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setState) {
+          return Obx(() => AlertDialog(
+            title: const Text("Update Product"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: "Product Name"),
+                  ),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(labelText: "Description"),
+                    maxLines: 3,
+                  ),
+                  TextField(
+                    controller: quantityController,
+                    decoration: const InputDecoration(labelText: "Quantity"),
+                    keyboardType: TextInputType.number,
+                  ),
+                  TextField(
+                    controller: priceController,
+                    decoration: const InputDecoration(labelText: "Price"),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text("Image Source", style: TextStyle(fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: imageController,
+                          decoration: const InputDecoration(
+                            labelText: "Image URL",
+                            hintText: "Paste image URL...",
+                          ),
+                          onChanged: (value) {
+                            if (value.isNotEmpty) {
+                              setState(() => _selectedImage = null);
+                            }
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.photo_library),
+                        onPressed: () async {
+                          final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+                          if (pickedFile != null) {
+                            setState(() {
+                              _selectedImage = File(pickedFile.path);
+                              imageController.clear();
+                            });
+                          }
+                        },
+                        tooltip: "Pick from gallery",
+                      ),
+                    ],
+                  ),
+                  if (_selectedImage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      "New image from gallery",
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      height: 100,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() => _selectedImage = null),
+                      child: const Text("Remove image", style: TextStyle(color: Colors.red)),
+                    ),
+                  ] else if (product['image']?.isNotEmpty == true) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      "Current product image",
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      height: 100,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _buildImagePreview(product['image']),
+                    ),
+                  ],
+                ],
               ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: "Description"),
-                maxLines: 3,
+            ),
+            actions: [
+              TextButton(
+                onPressed: isUpdating.value ? null : () => Get.back(),
+                child: const Text("Cancel"),
               ),
-              TextField(
-                controller: quantityController,
-                decoration: const InputDecoration(labelText: "Quantity"),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: "Price"),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: imageController,
-                decoration: const InputDecoration(
-                  labelText: "Image URL or Base64",
-                  hintText: "Paste a valid image URL or Base64 data...",
-                ),
-                maxLines: 3,
+              ElevatedButton(
+                onPressed: isUpdating.value ? null : updateProduct,
+                child: isUpdating.value
+                    ? const CircularProgressIndicator()
+                    : const Text("Update"),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: isUpdating.value ? null : () => Get.back(),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: isUpdating.value ? null : updateProduct,
-            child: isUpdating.value
-                ? const CircularProgressIndicator()
-                : const Text("Update"),
-          ),
-        ],
-      )),
+          ));
+        },
+      ),
+    );
+  }
+
+  Widget _buildImagePreview(String imageData) {
+    try {
+      if (imageData.startsWith('http')) {
+        return Image.network(
+          imageData,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
+        );
+      } else if (imageData.startsWith('data:image')) {
+        return Image.memory(
+          base64.decode(imageData.split(',').last),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
+        );
+      }
+      return _buildErrorImage();
+    } catch (e) {
+      return _buildErrorImage();
+    }
+  }
+
+  Widget _buildErrorImage() {
+    return const Center(
+      child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
     );
   }
 
@@ -426,6 +619,7 @@ class ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 3,
+      color: Colors.white, // ✅ White background
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Stack(
@@ -436,18 +630,16 @@ class ProductCard extends StatelessWidget {
               Expanded(
                 child: Stack(
                   children: [
-                    Positioned.fill(
-                      child: _buildProductImage(),
-                    ),
+                    Positioned.fill(child: _buildProductImage()),
                     Positioned(
                       top: 8,
                       left: 8,
                       child: CircleAvatar(
                         radius: 18,
-                        backgroundColor: Colors.white.withOpacity(0.9),
+                        backgroundColor: Colors.grey.withOpacity(0.9),
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.edit, size: 18, color: Colors.blue),
+                          icon: const Icon(Icons.edit, size: 18, color: Colors.white),
                           onPressed: onUpdate,
                         ),
                       ),
@@ -457,10 +649,10 @@ class ProductCard extends StatelessWidget {
                       right: 8,
                       child: CircleAvatar(
                         radius: 18,
-                        backgroundColor: Colors.white.withOpacity(0.9),
+                        backgroundColor: Colors.grey.withOpacity(0.9),
                         child: IconButton(
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                          icon: const Icon(Icons.delete, size: 18, color: Colors.white),
                           onPressed: onDelete,
                         ),
                       ),
@@ -512,8 +704,6 @@ class ProductCard extends StatelessWidget {
                             ),
                           ),
                         ),
-
-
                       ],
                     ),
                   ],
@@ -559,22 +749,6 @@ class ProductCard extends StatelessWidget {
       child: const Center(
         child: Icon(Icons.broken_image, size: 40, color: Colors.grey),
       ),
-    );
-  }
-}
-
-class PlaceholderImage extends StatelessWidget {
-  final double size;
-
-  const PlaceholderImage({super.key, this.size = 40});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      color: Colors.grey[200],
-      child: Icon(Icons.image, size: size * 0.6, color: Colors.grey),
     );
   }
 }
