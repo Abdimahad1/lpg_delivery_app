@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
-import '../config/api_config.dart';
+import '../config/api_config.dart'; // Ensure this is set up correctly
 import '../auth/network_service.dart';
 
 class ForgotPasswordController extends GetxController {
@@ -241,7 +241,7 @@ class ForgotPasswordController extends GetxController {
           "Accept": "application/json",
         },
         body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 30));
 
       print("⬅️ Status: ${response.statusCode}");
       print("⬅️ Body: ${response.body}");

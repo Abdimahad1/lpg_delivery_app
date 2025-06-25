@@ -10,8 +10,8 @@ const String? overrideEnv = "deployed"; // ✅ Now using deployed backend
 const String emulatorHost = "http://10.0.2.2:5000"; // Android Emulator
 const String realDeviceHost = "http://192.168.6.25:5000"; // Laptop IP
 const String localhostHost = "http://localhost:5000"; // Browsers / dev machine
-const String ngrokHost = "https://8bf4-192-145-175-183.ngrok-free.app"; // Old testing tunnel
-const String deployedHost = "https://lgb-delivery-backend-last.onrender.com"; // ✅ Live backend
+const String ngrokHost = "https://7bbd-192-145-175-183.ngrok-free.app"; // Old testing tunnel
+const String deployedHost = "https://lgb-delivery-backend.onrender.com"; // ✅ Live backend
 
 // 📡 Final base URL with `/api/` included
 final String baseUrl = (() {
