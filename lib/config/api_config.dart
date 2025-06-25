@@ -4,16 +4,16 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 
 /// 🌍 Choose which environment to use:
 /// Options: "ngrok", "localEmulator", "localDevice", "localhost", "deployed"
-const String? overrideEnv = "ngrok"; // ✅ Using ngrok for real device testing
+const String? overrideEnv = "deployed"; // ✅ Now using deployed backend
 
 // 🛰️ Your base URLs per environment
 const String emulatorHost = "http://10.0.2.2:5000"; // Android Emulator
 const String realDeviceHost = "http://192.168.6.25:5000"; // Laptop IP
 const String localhostHost = "http://localhost:5000"; // Browsers / dev machine
-const String ngrokHost = "https://ebe2-192-145-175-147.ngrok-free.app"; // ✅ Active ngrok URL
-const String deployedHost = "https://your-production-backend.com"; // Live backend (future)
+const String ngrokHost = "https://8bf4-192-145-175-183.ngrok-free.app"; // Old testing tunnel
+const String deployedHost = "https://lgb-delivery-backend-last.onrender.com"; // ✅ Live backend
 
-// 📡 Final base URL with `/api/` included (backend uses `/api/auth`)
+// 📡 Final base URL with `/api/` included
 final String baseUrl = (() {
   String raw;
 
@@ -48,7 +48,7 @@ final String baseUrl = (() {
   }
 
   if (!raw.endsWith('/')) raw += '/';
-  raw += 'api/'; // ✅ Include /api/
+  raw += 'api/'; // ✅ Append /api/
   print("📡 baseUrl: $raw");
   return raw;
 })();
