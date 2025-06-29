@@ -5,26 +5,28 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
-import '../config/api_config.dart'; // Ensure this is set up correctly
+import '../config/api_config.dart';
 import '../auth/network_service.dart';
 
 class ForgotPasswordController extends GetxController {
-  // Email & OTP fields
+  // Form controllers
   final emailController = TextEditingController();
   final otpControllers = List.generate(6, (index) => TextEditingController());
   final newPasswordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
-  // State
+  // State variables
   final isLoading = false.obs;
   final isOnline = false.obs;
   final resetToken = ''.obs;
+  final serverTimeOffset = Rx<Duration?>(null);
 
   final String _apiBaseUrl = "${baseUrl}password-reset";
 
   @override
   void onInit() {
     _checkInternetConnection();
+    _checkServerTime();
     super.onInit();
   }
 
@@ -39,8 +41,28 @@ class ForgotPasswordController extends GetxController {
     super.onClose();
   }
 
-  // Snackbar
+  // Helper to clear all form fields
+  void clearAllFields() {
+    emailController.clear();
+    newPasswordController.clear();
+    confirmPasswordController.clear();
+    resetToken.value = '';
+    for (var controller in otpControllers) {
+      controller.clear();
+    }
+    _log('All form fields cleared', emoji: '🧹');
+  }
+
+  // Debug logging helper
+  void _log(String message, {String emoji = 'ℹ️', bool isError = false}) {
+    final timestamp = DateTime.now().toIso8601String();
+    final prefix = isError ? '❌ ERROR:' : '$emoji DEBUG:';
+    debugPrint('[$timestamp] $prefix $message');
+  }
+
+  // Show snackbar
   void _showSnackbar(String title, String message, {bool isError = true}) {
+    _log('Showing snackbar: $title - $message', emoji: '📢');
     Get.snackbar(
       title,
       message,
@@ -52,73 +74,88 @@ class ForgotPasswordController extends GetxController {
     );
   }
 
-  // Validate Email
   bool _validateEmail(String email) {
     final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     return emailRegex.hasMatch(email);
   }
 
-  // Check Internet
   Future<void> _checkInternetConnection() async {
-    isOnline.value = await NetworkService.isConnected();
+    try {
+      final result = await NetworkService.isConnected();
+      isOnline.value = result;
+      _log('Internet connection: ${result ? "Online" : "Offline"}',
+          emoji: result ? '🌐' : '⚠️');
+    } catch (e) {
+      _log('Error checking internet: $e', emoji: '❌', isError: true);
+      isOnline.value = false;
+    }
+  }
+
+  Future<void> _checkServerTime() async {
+    try {
+      _log('Checking server time synchronization...', emoji: '⏱️');
+      final uri = Uri.parse("${baseUrl}server-time");
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final serverData = jsonDecode(response.body);
+        final serverTime = DateTime.parse(serverData['isoString']);
+        final localTime = DateTime.now();
+        final offset = localTime.difference(serverTime);
+
+        serverTimeOffset.value = offset;
+        _log('Server time: ${serverTime.toIso8601String()}', emoji: '⏱️');
+        _log('Local time: ${localTime.toIso8601String()}', emoji: '⏱️');
+        _log('Time difference: ${offset.inSeconds} seconds', emoji: '⏱️');
+
+        if (offset.inSeconds.abs() > 30) {
+          _log('WARNING: Significant time difference detected!', emoji: '⚠️');
+        }
+      }
+    } catch (e) {
+      _log('Could not verify server time: $e', emoji: '⚠️');
+    }
   }
 
   // Step 1: Send OTP
   Future<bool> sendOtp() async {
-    final email = emailController.text.trim();
+    final email = emailController.text.trim().toLowerCase();
+    _log('Starting sendOtp process for email: $email', emoji: '📧');
 
     if (!_validateEmail(email)) {
+      _log('Invalid email format: $email', emoji: '❌', isError: true);
       _showSnackbar("Error", "Please enter a valid email");
       return false;
     }
 
     await _checkInternetConnection();
     if (!isOnline.value) {
-      _showSnackbar("Network Error", "No internet connection", isError: true);
+      _showSnackbar("Network Error", "No internet connection");
       return false;
     }
 
     isLoading.value = true;
-
     final uri = Uri.parse("$_apiBaseUrl/send-otp");
     final payload = {"email": email};
 
-    print("📡 Sending OTP...");
-    print("➡️ POST: $uri");
-    print("📦 Payload: $payload");
-
     try {
-      final response = await http.post(
-        uri,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
+      final response = await http.post(uri,
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 10));
 
-      print("⬅️ Status: ${response.statusCode}");
-      print("⬅️ Body: ${response.body}");
-
-      final responseBody = jsonDecode(response.body);
-
+      final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        _showSnackbar("Success", "OTP sent to your email", isError: false);
+        _showSnackbar("Success", "If this email exists in our system, you'll receive an OTP", isError: false);
+        _log('OTP sent successfully', emoji: '✅');
         return true;
       } else {
-        _showSnackbar("Error", responseBody['message'] ?? "Failed to send OTP");
-        return false;
+        _showSnackbar("Error", body['message'] ?? "Failed to send OTP");
+        _log('OTP send failed: ${body['message']}', emoji: '❌', isError: true);
       }
-    } on SocketException catch (e) {
-      _showSnackbar("Network Error", "No internet connection", isError: true);
-      print("❌ SocketException: $e");
-    } on TimeoutException catch (e) {
-      _showSnackbar("Timeout", "Server took too long to respond", isError: true);
-      print("❌ TimeoutException: $e");
-    } catch (e, stack) {
-      _showSnackbar("Error", "An unexpected error occurred", isError: true);
-      print("❌ Unexpected Exception: $e");
-      print("🪵 Stack Trace:\n$stack");
+    } catch (e) {
+      _log('Error sending OTP: $e', emoji: '❌', isError: true);
+      _showSnackbar("Error", "Could not send OTP");
     } finally {
       isLoading.value = false;
     }
@@ -127,73 +164,50 @@ class ForgotPasswordController extends GetxController {
 
   // Step 2: Verify OTP
   Future<bool> verifyOtp() async {
-    final otp = otpControllers.map((controller) => controller.text).join();
+    final email = emailController.text.trim().toLowerCase();
+    final otp = otpControllers.map((c) => c.text).join();
 
     if (otp.length != 6) {
-      _showSnackbar("Error", "Please enter the complete 6-digit OTP");
+      _showSnackbar("Error", "Please enter a 6-digit OTP");
       return false;
     }
 
     await _checkInternetConnection();
     if (!isOnline.value) {
-      _showSnackbar("Network Error", "No internet connection", isError: true);
+      _showSnackbar("Network Error", "No internet connection");
       return false;
     }
 
     isLoading.value = true;
-
     final uri = Uri.parse("$_apiBaseUrl/verify-otp");
-    final payload = {
-      "email": emailController.text.trim(),
-      "otp": otp,
-    };
-
-    print("📡 Verifying OTP...");
-    print("➡️ POST: $uri");
-    print("📦 Payload: $payload");
+    final payload = {"email": email, "otp": otp};
 
     try {
-      final response = await http.post(
-        uri,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
+      final response = await http.post(uri,
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 10));
 
-      print("⬅️ Status: ${response.statusCode}");
-      print("⬅️ Body: ${response.body}");
-
-      final responseBody = jsonDecode(response.body);
-
+      final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        resetToken.value = responseBody['resetToken'] ?? '';
-        print("✅ Saved resetToken: ${resetToken.value}");
-
+        resetToken.value = body['resetToken'] ?? '';
         _showSnackbar("Success", "OTP verified successfully", isError: false);
+        _log('OTP verified successfully. Reset token: ${resetToken.value}', emoji: '✅');
         return true;
       } else {
-        _showSnackbar("Error", responseBody['message'] ?? "Failed to verify OTP");
-        return false;
+        _showSnackbar("Error", body['message'] ?? "Invalid OTP");
+        _log('OTP verification failed: ${body['message']}', emoji: '❌', isError: true);
       }
-    } on SocketException catch (e) {
-      _showSnackbar("Network Error", "No internet connection", isError: true);
-      print("❌ SocketException: $e");
-    } on TimeoutException catch (e) {
-      _showSnackbar("Timeout", "Server took too long to respond", isError: true);
-      print("❌ TimeoutException: $e");
-    } catch (e, stack) {
-      _showSnackbar("Error", "An unexpected error occurred", isError: true);
-      print("❌ Unexpected Exception: $e");
-      print("🪵 Stack Trace:\n$stack");
+    } catch (e) {
+      _log('Error verifying OTP: $e', emoji: '❌', isError: true);
+      _showSnackbar("Error", "Could not verify OTP");
     } finally {
       isLoading.value = false;
     }
     return false;
   }
 
-  // Step 3: Reset Password
+  // Step 3: Reset password
   Future<bool> resetPassword() async {
     final newPassword = newPasswordController.text.trim();
     final confirmPassword = confirmPasswordController.text.trim();
@@ -202,26 +216,22 @@ class ForgotPasswordController extends GetxController {
       _showSnackbar("Error", "Password must be at least 6 characters");
       return false;
     }
-
     if (newPassword != confirmPassword) {
       _showSnackbar("Error", "Passwords do not match");
       return false;
     }
-
     if (resetToken.value.isEmpty) {
       _showSnackbar("Error", "Reset token missing. Please verify OTP first.");
-      print("⚠️ Reset token missing");
       return false;
     }
 
     await _checkInternetConnection();
     if (!isOnline.value) {
-      _showSnackbar("Network Error", "No internet connection", isError: true);
+      _showSnackbar("Network Error", "No internet connection");
       return false;
     }
 
     isLoading.value = true;
-
     final uri = Uri.parse("$_apiBaseUrl/reset-password");
     final payload = {
       "resetToken": resetToken.value,
@@ -229,42 +239,25 @@ class ForgotPasswordController extends GetxController {
       "confirmPassword": confirmPassword,
     };
 
-    print("📡 Resetting Password...");
-    print("➡️ POST: $uri");
-    print("📦 Payload: $payload");
-
     try {
-      final response = await http.post(
-        uri,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
+      final response = await http.post(uri,
+        headers: {"Content-Type": "application/json"},
         body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 30));
 
-      print("⬅️ Status: ${response.statusCode}");
-      print("⬅️ Body: ${response.body}");
-
-      final responseBody = jsonDecode(response.body);
-
+      final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
         _showSnackbar("Success", "Password reset successfully", isError: false);
+        _log('Password reset successful', emoji: '✅');
+        clearAllFields(); // Clear fields after successful reset
         return true;
       } else {
-        _showSnackbar("Error", responseBody['message'] ?? "Failed to reset password");
-        return false;
+        _showSnackbar("Error", body['message'] ?? "Failed to reset password");
+        _log('Password reset failed: ${body['message']}', emoji: '❌', isError: true);
       }
-    } on SocketException catch (e) {
-      _showSnackbar("Network Error", "No internet connection", isError: true);
-      print("❌ SocketException: $e");
-    } on TimeoutException catch (e) {
-      _showSnackbar("Timeout", "Server took too long to respond", isError: true);
-      print("❌ TimeoutException: $e");
-    } catch (e, stack) {
-      _showSnackbar("Error", "An unexpected error occurred", isError: true);
-      print("❌ Unexpected Exception: $e");
-      print("🪵 Stack Trace:\n$stack");
+    } catch (e) {
+      _log('Error resetting password: $e', emoji: '❌', isError: true);
+      _showSnackbar("Error", "Could not reset password");
     } finally {
       isLoading.value = false;
     }

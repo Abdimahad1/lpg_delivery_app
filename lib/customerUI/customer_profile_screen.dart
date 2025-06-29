@@ -243,7 +243,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen>
                         const SizedBox(height: 16),
                         _buildNotificationToggle("In App Notifications", "inApp"),
                         const SizedBox(height: 16),
-                        _buildNotificationToggle("SMS Notifications", "sms"),
                       ],
                     ),
                   ),
