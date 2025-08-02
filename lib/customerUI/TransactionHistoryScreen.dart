@@ -39,21 +39,31 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       final profileController = Get.find<ProfileController>();
       final token = profileController.authToken;
 
+      print("🔐 Using token: $token");
+
+      final url = "${baseUrl}payment/history";
+      print("🌐 Fetching: $url");
+
       final response = await http.get(
-        Uri.parse("${baseUrl}payment/history"),
+        Uri.parse(url),
         headers: {"Authorization": "Bearer $token"},
       );
+
+      print("📥 Status Code: ${response.statusCode}");
+      print("📥 Response Body: ${response.body}");
 
       final res = jsonDecode(response.body);
       if (res['success'] == true && res['transactions'] != null) {
         allTransactions = List<Map<String, dynamic>>.from(res['transactions']);
+        print("✅ Fetched ${allTransactions.length} transactions.");
         filterTransactions();
       } else {
+        print("⚠️ API responded with success: false or missing transactions.");
         allTransactions = [];
         filteredTransactions = [];
       }
     } catch (e) {
-      print("\u274c Error fetching transactions: $e");
+      print("❌ Error fetching transactions: $e");
       allTransactions = [];
       filteredTransactions = [];
     } finally {
@@ -78,6 +88,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             (selectedAmountFilter == '> \$5' && tx['amount'] > 5);
         return matchesDate && matchesSearch && matchesAmount;
       }).toList();
+
+      print("🔎 Filtered to ${filteredTransactions.length} transactions.");
     });
   }
 

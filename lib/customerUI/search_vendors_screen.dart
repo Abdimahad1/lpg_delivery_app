@@ -58,7 +58,6 @@ class _SearchVendorsScreenState extends State<SearchVendorsScreen> {
   Future<void> _navigateToVendorLocation(Map<String, dynamic> vendor) async {
     final name = vendor['shopName'] ?? vendor['name'] ?? 'Vendor';
     final address = vendor['address'] ?? '';
-
     final lat = vendor['coordinates']?['lat']?.toDouble();
     final lng = vendor['coordinates']?['lng']?.toDouble();
 
@@ -106,58 +105,72 @@ class _SearchVendorsScreenState extends State<SearchVendorsScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF1F5),
-      appBar: AppBar(
-        title: const Text("Search Vendors"),
-        backgroundColor: const Color(0xFF3E3EFF),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Get.back(),
-        ),
-      ),
-      body: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                icon: Icon(Icons.search),
-                hintText: 'Search vendors by name...',
-                border: InputBorder.none,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Get.back(),
+                  ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black12, blurRadius: 6)
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          icon: Icon(Icons.search),
+                          hintText: 'Search vendors...',
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    onPressed: fetchAllVendors,
+                  ),
+                ],
               ),
             ),
-          ),
-          Expanded(
-            child: filteredVendors.isEmpty
-                ? const Center(child: Text("No vendors found"))
-                : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: filteredVendors.length,
-              itemBuilder: (context, index) {
-                final vendor = filteredVendors[index];
-                return GestureDetector(
-                  onTap: () => _navigateToVendorLocation(vendor),
-                  child: VendorCard(
-                    name: vendor['shopName'] ?? vendor['name'] ?? 'Vendor',
-                    location: vendor['address'] ?? 'No location',
-                    imageUrl: vendor['profileImage'] ?? '',
-                  ),
-                );
-              },
+            Expanded(
+              child: filteredVendors.isEmpty
+                  ? const Center(child: Text("No vendors found"))
+                  : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: filteredVendors.length,
+                itemBuilder: (context, index) {
+                  final vendor = filteredVendors[index];
+                  return GestureDetector(
+                    onTap: () => _navigateToVendorLocation(vendor),
+                    child: VendorCard(
+                      name: vendor['shopName'] ??
+                          vendor['name'] ??
+                          'Vendor',
+                      location:
+                      vendor['address'] ?? 'No location provided',
+                      imageUrl: vendor['profileImage'] ?? '',
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -167,7 +180,7 @@ class VendorCard extends StatelessWidget {
   final String name;
   final String location;
   final String imageUrl;
-  final double? price; // optional price (e.g. starting price)
+  final double? price;
 
   const VendorCard({
     super.key,
@@ -191,7 +204,8 @@ class VendorCard extends StatelessWidget {
               radius: 30,
               backgroundImage: imageUrl.startsWith("http")
                   ? NetworkImage(imageUrl)
-                  : const AssetImage('assets/images/vendor.png') as ImageProvider,
+                  : const AssetImage('assets/images/vendor.png')
+              as ImageProvider,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -210,12 +224,14 @@ class VendorCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 16, color: Colors.red),
+                      const Icon(Icons.location_on,
+                          size: 16, color: Colors.red),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           location,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -245,5 +261,3 @@ class VendorCard extends StatelessWidget {
     );
   }
 }
-
-
