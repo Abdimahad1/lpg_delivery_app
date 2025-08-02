@@ -46,8 +46,9 @@ class _PayScreenState extends State<PayScreen> {
   Timer? _countdownTimer;
   int _secondsLeft = 60;
   String? _selectedDistrict;
-  String? _fullLocationAddress; // Stores the complete location address
+  String? _fullLocationAddress;
   bool _isLoadingLocation = false;
+  String? _selectedPaymentMethod;
 
   void _startCountdown() {
     _secondsLeft = 60;
@@ -82,7 +83,7 @@ class _PayScreenState extends State<PayScreen> {
       final fullAddress = result['address'] as String?;
       setState(() {
         _selectedDistrict = district;
-        _fullLocationAddress = fullAddress ?? widget.userLocation; // Store full address
+        _fullLocationAddress = fullAddress ?? widget.userLocation;
         _isLoadingLocation = false;
       });
     } else {
@@ -91,7 +92,6 @@ class _PayScreenState extends State<PayScreen> {
   }
 
   String _extractDistrictFromAddress(String address) {
-    // This is a simple implementation - you might need to adjust based on actual address format
     final districts = ['Benadir', 'Madina', 'Karan', 'Hodan', 'Howlwadag', 'Wadajir', 'Yaqshid'];
     for (var district in districts) {
       if (address.contains(district)) {
@@ -104,11 +104,14 @@ class _PayScreenState extends State<PayScreen> {
     );
   }
 
-  void _showPhonePopup(BuildContext context) {
+  void _showPhonePopup(BuildContext context, String paymentMethod) {
     if (_hasTriedPayment || _selectedDistrict == null) return;
 
     _accountNoController.clear();
-    setState(() => _hasTriedPayment = false);
+    setState(() {
+      _hasTriedPayment = false;
+      _selectedPaymentMethod = paymentMethod;
+    });
 
     showDialog(
       context: context,
@@ -122,13 +125,16 @@ class _PayScreenState extends State<PayScreen> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Enter Your Phone Number", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    "Enter Your $paymentMethod Number",
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _accountNoController,
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
-                      labelText: "e.g. 2526xxxxxxx",
+                      labelText: paymentMethod == "EVC Plus" ? "e.g. 2526xxxxxxx" : "e.g. 25268xxxxxxx",
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       prefixIcon: const Icon(Icons.phone),
                     ),
@@ -145,7 +151,10 @@ class _PayScreenState extends State<PayScreen> {
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text("Send Money", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      "Send Money",
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
                   )
                 ],
               ),
@@ -174,6 +183,17 @@ class _PayScreenState extends State<PayScreen> {
       return;
     }
 
+    // Validate phone number format based on selected payment method
+    if (_selectedPaymentMethod == "EVC Plus" && !phone.startsWith("2526")) {
+      _showSnack("❗ EVC Plus numbers should start with 2526", Colors.orange);
+      setState(() => _hasTriedPayment = false);
+      return;
+    } else if (_selectedPaymentMethod == "E-Dahab" && !phone.startsWith("25268")) {
+      _showSnack("❗ E-Dahab numbers should start with 25268", Colors.orange);
+      setState(() => _hasTriedPayment = false);
+      return;
+    }
+
     Navigator.pop(dialogContext);
 
     _startCountdown();
@@ -190,9 +210,9 @@ class _PayScreenState extends State<PayScreen> {
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 20),
-              const Text(
-                "📲 Waiting for you to confirm the payment on your phone...",
-                style: TextStyle(fontSize: 16),
+              Text(
+                "📲 Waiting for you to confirm the payment on your $_selectedPaymentMethod...",
+                style: const TextStyle(fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
@@ -208,7 +228,6 @@ class _PayScreenState extends State<PayScreen> {
       final token = profileController.authToken;
       final invoiceId = "INV-${DateTime.now().millisecondsSinceEpoch}";
 
-      // Use the full location address for the transaction, but display the district in UI
       final paymentPayload = {
         "accountNo": phone,
         "amount": widget.amount,
@@ -219,8 +238,9 @@ class _PayScreenState extends State<PayScreen> {
         "productTitle": widget.productTitle,
         "productImage": widget.productImage,
         "productPrice": widget.productPrice,
-        "userLocation": _fullLocationAddress ?? widget.userLocation, // Send full address
-        "displayLocation": _selectedDistrict, // Optional: send district separately if needed
+        "userLocation": _fullLocationAddress ?? widget.userLocation,
+        "displayLocation": _selectedDistrict,
+        "paymentMethod": _selectedPaymentMethod,
       };
 
       final response = await http.post(
@@ -268,31 +288,62 @@ class _PayScreenState extends State<PayScreen> {
   Widget _buildPaymentOption(BuildContext context, String imagePath, String label) {
     final isDisabled = _selectedDistrict == null;
 
-    return InkWell(
-      onTap: isDisabled ? null : () {
-        if (!_hasTriedPayment) {
-          _showPhonePopup(context);
-        }
-      },
-      child: Opacity(
-        opacity: isDisabled ? 0.5 : 1.0,
+    return AnimatedOpacity(
+      opacity: isDisabled ? 0.3 : 1.0,
+      duration: const Duration(milliseconds: 300),
+      child: IgnorePointer(
+        ignoring: isDisabled,
         child: Container(
-          height: 160,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          height: 120,
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             color: Colors.white,
-            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+            boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))],
+            border: Border.all(
+              color: _selectedPaymentMethod == label ? Colors.blue : Colors.transparent,
+              width: 2,
+            ),
           ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: Image.asset(imagePath, width: 120, height: 120, fit: BoxFit.contain),
-              ),
-              const SizedBox(width: 20),
-              Text(label, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-            ],
+          child: InkWell(
+            onTap: () => _showPhonePopup(context, label),
+            borderRadius: BorderRadius.circular(20),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Image.asset(
+                    imagePath,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        label == "EVC Plus" ? "2526xxxxxxx" : "25268xxxxxxx",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
           ),
         ),
       ),
@@ -303,16 +354,21 @@ class _PayScreenState extends State<PayScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("SELECT YOUR DISTRICT", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Text(
+          "SELECT YOUR DISTRICT",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+        ),
         const SizedBox(height: 10),
         InkWell(
           onTap: _selectDistrict,
+          borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade300),
+              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
             ),
             child: Row(
               children: [
@@ -348,21 +404,70 @@ class _PayScreenState extends State<PayScreen> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 77),
-      decoration: const BoxDecoration(
-        color: Color(0xFFE4E4F4),
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
-      ),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: GestureDetector(
-          onTap: () => Get.back(),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.arrow_back, color: Colors.white),
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 60),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade800,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
         ),
+        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Get.back(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.arrow_back, color: Colors.white),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                "Payment",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "Pay The Gas Payment",
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "Vendor: ${widget.vendorName}",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            "Amount: \$${widget.amount}",
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -371,9 +476,7 @@ class _PayScreenState extends State<PayScreen> {
   void initState() {
     super.initState();
     _hasTriedPayment = false;
-    // Initialize with the full address from widget
     _fullLocationAddress = widget.userLocation;
-    // Extract district from the initial address if needed
     if (widget.userLocation.isNotEmpty) {
       _selectedDistrict = _extractDistrictFromAddress(widget.userLocation);
     }
@@ -388,34 +491,63 @@ class _PayScreenState extends State<PayScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE4E4F4),
+      backgroundColor: const Color(0xFFF5F5F5),
       body: Column(
         children: [
           _buildHeader(),
           Expanded(
             child: SingleChildScrollView(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(40),
+                    topRight: Radius.circular(40),
+                  ),
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("Pay The Gas Payment", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Text("Vendor: ${widget.vendorName}"),
-                    const SizedBox(height: 8),
-                    Text("Amount: \$${widget.amount}", style: const TextStyle(color: Colors.green, fontSize: 18)),
-                    const SizedBox(height: 40),
-
                     // District selector
                     _buildDistrictSelector(),
 
-                    const Text("SELECT PAYMENT OPTION", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 30),
-                    _buildPaymentOption(context, "assets/images/evcplus.png", "EVC Plus"),
+                    const Text(
+                      "SELECT PAYMENT METHOD",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
                     const SizedBox(height: 20),
+                    if (_selectedDistrict == null)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info, color: Colors.orange.shade700),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                "Please select your district first to enable payment options",
+                                style: TextStyle(
+                                  color: Colors.orange.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    _buildPaymentOption(context, "assets/images/evcplus.png", "EVC Plus"),
+                    _buildPaymentOption(context, "assets/images/edahab.png", "E-Dahab"),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),

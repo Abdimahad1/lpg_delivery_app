@@ -7,13 +7,14 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:permission_handler/permission_handler.dart' hide PermissionStatus;
-import '../config/api_config.dart'; // contains baseUrl
+import '../config/api_config.dart';
 import 'profile_controller.dart';
 
 class TrackDeliveryController extends GetxController {
   final deliveryStatus = "Out For Delivery".obs;
   final estTime = "Calculating...".obs;
   final distanceValue = "0".obs;
+  final isLoading = false.obs;
 
   final vendorLocation = Rx<LatLng?>(null);
   final customerLocation = Rx<LatLng?>(null);
@@ -51,6 +52,20 @@ class TrackDeliveryController extends GetxController {
         _centerMap();
       }
     });
+  }
+
+  Future<void> refreshAllData() async {
+    isLoading.value = true;
+    await _fetchCurrentLocation();
+    if (task['address'] != null) {
+      final coords = await geocodeAddress(task['address']);
+      if (coords != null) {
+        customerLocation.value = coords;
+      }
+    }
+    _calculateDistanceAndTime();
+    _centerMap();
+    isLoading.value = false;
   }
 
   void initialize(Map<String, dynamic> taskData) async {
@@ -221,7 +236,6 @@ class TrackDeliveryController extends GetxController {
     }
   }
 
-  /// ✅ NEW: Send notification to customer
   Future<Map<String, dynamic>> sendNotification(String message, String customerId) async {
     final profileController = Get.find<ProfileController>();
     final token = profileController.authToken;
@@ -234,17 +248,17 @@ class TrackDeliveryController extends GetxController {
           "Content-Type": "application/json",
         },
         body: jsonEncode({
-          "senderName": "MOG Gas",
+          "senderName": "DELIVERY MESSAGE",
           "message": message,
           "receiverId": customerId,
         }),
       );
 
       final res = jsonDecode(response.body);
-      return res; // Return the parsed response
+      return res;
     } catch (e) {
       debugPrint("Notification send error: $e");
-      rethrow; // Rethrow to be caught in the UI
+      rethrow;
     }
   }
 }

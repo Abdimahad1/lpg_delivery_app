@@ -55,6 +55,10 @@ class _AssignDeliveryScreenState extends State<AssignDeliveryScreen> {
         final allTasks = List<Map<String, dynamic>>.from(res['data']);
         final orderId = widget.order['_id'];
 
+        // Clear previous data
+        assignedToThisOrder.clear();
+        activeTaskDetails.clear();
+
         for (final task in allTasks) {
           final personId = task['deliveryPersonId']?.toString();
           if (personId == null) continue;
@@ -63,6 +67,7 @@ class _AssignDeliveryScreenState extends State<AssignDeliveryScreen> {
             assignedToThisOrder.add(personId);
           }
 
+          // Only consider Pending or Accepted tasks as active
           if (task['status'] == 'Pending' || task['status'] == 'Accepted') {
             activeTaskDetails[personId] = task;
           }
