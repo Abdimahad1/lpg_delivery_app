@@ -34,6 +34,10 @@ dependencies:
   audioplayers: ^5.2.1
   flutter_typeahead: ^4.0.0
   url_launcher: ^6.1.11
+  iconsax: ^0.0.8
+  intl: ^0.19.0
+
+
 
 
 

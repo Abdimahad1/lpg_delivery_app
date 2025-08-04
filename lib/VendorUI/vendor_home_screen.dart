@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -7,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart';
 import '../../controllers/profile_controller.dart';
+import '../widgets/BackHandlerWrapper.dart';
 
 class VendorHomeScreen extends StatefulWidget {
   const VendorHomeScreen({super.key});
@@ -26,6 +28,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   final priceController = TextEditingController();
   final quantityController = TextEditingController();
   final imageController = TextEditingController();
+  final searchController = TextEditingController(); // Added for search functionality
 
   File? _selectedImage;
   String? _currentProductId;
@@ -43,40 +46,99 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
     priceController.dispose();
     quantityController.dispose();
     imageController.dispose();
+    searchController.dispose(); // Dispose of the search controller
     super.dispose();
+  }
+
+  Future<bool> _onBackPressed() async {
+    bool? exitConfirmed = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Exit App"),
+        content: const Text("Are you sure you want to exit the system?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Yes"),
+          ),
+        ],
+      ),
+    );
+    return exitConfirmed ?? false;
   }
 
   Future<void> fetchProducts() async {
     isLoading.value = true;
     final token = Get.find<ProfileController>().authToken;
+    final url = '${baseUrl}products';
+
+    print('🟢 fetchProducts() called');
+    print('🌐 URL: $url');
+    print('🔐 Token: $token');
 
     try {
       final res = await http.get(
-        Uri.parse('${baseUrl}products'),
+        Uri.parse(url),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
+          'Accept': 'application/json', // Explicitly ask for JSON
         },
       );
 
+      print('📥 Response Status: ${res.statusCode}');
+      print('📥 Response Headers: ${res.headers}'); // Add headers to debug
+      print('📥 First 200 chars of body: ${res.body.substring(0, min(200, res.body.length))}');
+
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true) {
-          setState(() {
-            _products.clear();
-            _products.addAll((body['data'] as List).map((item) => {
-              "id": item['_id'],
-              "name": item['name'],
-              "description": item['description'] ?? '',
-              "quantity": item['quantity'],
-              "price": double.parse(item['price'].toString()),
-              "image": item['image'] ?? '',
-            }).toList());
-          });
+        // Check content type before parsing
+        if (res.headers['content-type']?.contains('application/json') ?? false) {
+          try {
+            final body = jsonDecode(res.body);
+            print('✅ JSON parsed successfully');
+
+            if (body['success'] == true && body['data'] != null) {
+              final List<dynamic> dataList = body['data'];
+              print('🧾 Found ${dataList.length} products');
+
+              setState(() {
+                _products.clear();
+                _products.addAll(dataList.map((item) => {
+                  "id": item['_id'],
+                  "name": item['name'],
+                  "description": item['description'] ?? '',
+                  "quantity": item['quantity'],
+                  "price": double.tryParse(item['price'].toString()) ?? 0.0,
+                  "image": item['image'] ?? '',
+                }).toList());
+              });
+            } else {
+              print('❌ API response success=false or missing data');
+              Get.snackbar("No Data", "No products found");
+            }
+          } catch (e) {
+            print('❌ Error parsing JSON: $e');
+            Get.snackbar("Error", "Invalid server response format");
+          }
+        } else {
+          print('❌ Server returned non-JSON response');
+          Get.snackbar("Error", "Server returned unexpected format");
         }
+      } else if (res.statusCode == 401) {
+        print('🚫 Unauthorized - Token may be invalid or expired');
+        Get.snackbar("Unauthorized", "Please login again");
+        // Consider adding token refresh logic here
+      } else {
+        print('❌ Server responded with error: ${res.statusCode}');
+        Get.snackbar("Error", "Server error: ${res.statusCode}");
       }
     } catch (e) {
-      Get.snackbar("Error", "Failed to load products");
+      print('❌ Network exception: $e');
+      Get.snackbar("Error", "Network error occurred");
     } finally {
       isLoading.value = false;
     }
@@ -524,43 +586,56 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFE4E1),
-      body: SafeArea(
-        child: Obx(() {
-          if (isLoading.value) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return BackHandlerWrapper(
+      onBack: _onBackPressed,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFFFFF),
+        appBar: AppBar(
+          title: const Text("My Products", style: TextStyle(fontWeight: FontWeight.bold)),
+          actions: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.green, // Green background
+                shape: BoxShape.circle, // Circular shape
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.add, color: Colors.white), // White plus icon
+                onPressed: showAddProductPopup,
+              ),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Obx(() {
+            if (isLoading.value) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
+            return Column(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search products...',
-                            prefixIcon: Icon(Icons.search),
-                            border: InputBorder.none,
-                          ),
-                        ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      hintText: "Search products...",
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
                       ),
+                      filled: true,
+                      fillColor: Colors.grey[100], // very light grey
                     ),
-                    const SizedBox(width: 10),
-                    FloatingActionButton(
-                      onPressed: showAddProductPopup,
-                      child: const Icon(Icons.add),
-                    ),
-                  ],
+                    onChanged: (value) {
+                      // Implement search filtering logic here
+                      setState(() {
+                        // Filter _products based on search value
+                        _products.retainWhere((product) => product['name'].toLowerCase().contains(value.toLowerCase()));
+                      });
+                    },
+                  ),
                 ),
-                const SizedBox(height: 20),
                 Expanded(
                   child: _products.isEmpty
                       ? const Center(child: Text("No products available"))
@@ -581,16 +656,18 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
                         price: product['price'],
                         quantity: product['quantity'],
                         imageData: product['image'],
-                        onUpdate: () => showUpdateProductPopup(product),
-                        onDelete: () => showDeleteConfirmation(product['id']),
+                        onUpdate: () =>
+                            showUpdateProductPopup(product),
+                        onDelete: () =>
+                            showDeleteConfirmation(product['id']),
                       );
                     },
                   ),
                 ),
               ],
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }

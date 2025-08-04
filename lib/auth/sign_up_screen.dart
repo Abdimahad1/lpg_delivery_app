@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/signup_controller.dart';
+import '../widgets/BackHandlerWrapper.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
@@ -14,65 +15,74 @@ class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isPasswordVisible = false;
 
+  Future<bool> _onBackPressed() async {
+    Get.back(); // Go back to previous screen (LoginScreen)
+    return false; // Prevent default system pop
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF3E3EFF),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.topLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Get.back(),
-                ),
-              ),
-              Image.asset('assets/images/delivery.png', height: 250),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.pink[50],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        "SIGN UP",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildRoleDropdown(),
-                      const SizedBox(height: 15),
-                      _buildNameField(),
-                      const SizedBox(height: 15),
-                      _buildPhoneField(),
-                      const SizedBox(height: 15),
-                      _buildEmailField(),
-                      const SizedBox(height: 15),
-                      _buildPasswordField(),
-                      const SizedBox(height: 20),
-                      Obx(() => controller.isLoading.value
-                          ? const Center(child: CircularProgressIndicator())
-                          : _buildSignUpButton()),
-                      const SizedBox(height: 16),
-                      _buildLoginText(),
-                    ],
+    return BackHandlerWrapper(
+      onBack: _onBackPressed,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF3E3EFF),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () {
+                      Get.back(); // Directly go back to LoginScreen
+                    },
                   ),
                 ),
-              ),
-            ],
+                Image.asset('assets/images/delivery.png', height: 250),
+                const SizedBox(height: 20),
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.pink[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "SIGN UP",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildRoleDropdown(),
+                        const SizedBox(height: 15),
+                        _buildNameField(),
+                        const SizedBox(height: 15),
+                        _buildPhoneField(),
+                        const SizedBox(height: 15),
+                        _buildEmailField(),
+                        const SizedBox(height: 15),
+                        _buildPasswordField(),
+                        const SizedBox(height: 20),
+                        Obx(() => controller.isLoading.value
+                            ? const Center(child: CircularProgressIndicator())
+                            : _buildSignUpButton()),
+                        const SizedBox(height: 16),
+                        _buildLoginText(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -90,7 +100,8 @@ class _SignupScreenState extends State<SignupScreen> {
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -116,13 +127,15 @@ class _SignupScreenState extends State<SignupScreen> {
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Please enter your phone number';
         }
-        if (!RegExp(r'^\d{9}$').hasMatch(value) && !RegExp(r'^\d{10}$').hasMatch(value)) {
+        if (!RegExp(r'^\d{9}$').hasMatch(value) &&
+            !RegExp(r'^\d{10}$').hasMatch(value)) {
           return 'Phone number must be 9 or 10 digits';
         }
         return null;
@@ -142,7 +155,8 @@ class _SignupScreenState extends State<SignupScreen> {
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -168,7 +182,8 @@ class _SignupScreenState extends State<SignupScreen> {
           borderRadius: BorderRadius.circular(30),
           borderSide: BorderSide.none,
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         suffixIcon: IconButton(
           icon: Icon(
             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
@@ -195,7 +210,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildRoleDropdown() {
     return Obx(() => DropdownButtonFormField<String>(
-      value: controller.selectedRole.value.isEmpty ? null : controller.selectedRole.value,
+      value: controller.selectedRole.value.isEmpty
+          ? null
+          : controller.selectedRole.value,
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
@@ -209,7 +226,8 @@ class _SignupScreenState extends State<SignupScreen> {
       items: const [
         DropdownMenuItem(value: "Customer", child: Text("Customer")),
         DropdownMenuItem(value: "Vendor", child: Text("Vendor")),
-        DropdownMenuItem(value: "DeliveryPerson", child: Text("Delivery Person")),
+        DropdownMenuItem(
+            value: "DeliveryPerson", child: Text("Delivery Person")),
       ],
       onChanged: (value) {
         controller.selectedRole.value = value!;
@@ -234,15 +252,13 @@ class _SignupScreenState extends State<SignupScreen> {
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.blueAccent,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30)),
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
       child: const Text(
         "SIGN UP",
         style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold),
+            color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -258,8 +274,7 @@ class _SignupScreenState extends State<SignupScreen> {
               TextSpan(
                 text: "LOGIN",
                 style: TextStyle(
-                    color: Colors.blueAccent,
-                    fontWeight: FontWeight.bold),
+                    color: Colors.blueAccent, fontWeight: FontWeight.bold),
               ),
             ],
           ),

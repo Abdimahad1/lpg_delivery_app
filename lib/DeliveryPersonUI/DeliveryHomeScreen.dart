@@ -34,7 +34,7 @@ class DeliveryHomeScreen extends StatelessWidget {
         return shouldExit ?? false;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFEDEBFF),
+        backgroundColor: const Color(0xFFFFFFFF),
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),

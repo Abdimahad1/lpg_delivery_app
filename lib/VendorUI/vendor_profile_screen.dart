@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:latlong2/latlong.dart' as latlng;
 import '../../controllers/profile_controller.dart';
 import '../Location/OSMLocationPickerScreen.dart';
 
@@ -30,7 +29,13 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
     super.dispose();
   }
 
-  Widget _buildTextField(String label, TextEditingController ctrl, {bool isAddress = false}) {
+  Future<bool> _onBackPressed() async {
+    Get.back(); // Return to previous screen
+    return false; // Prevent default pop
+  }
+
+  Widget _buildTextField(String label, TextEditingController ctrl,
+      {bool isAddress = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextField(
@@ -42,8 +47,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: isAddress ? 16 : 0),
-          suffixIcon: isAddress ? IconButton(
+          contentPadding: EdgeInsets.symmetric(
+              horizontal: 20, vertical: isAddress ? 16 : 0),
+          suffixIcon: isAddress
+              ? IconButton(
             icon: const Icon(Icons.location_on),
             onPressed: () async {
               final result = await Get.to(() => OSMLocationPickerScreen(
@@ -59,7 +66,8 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
                 );
               }
             },
-          ) : null,
+          )
+              : null,
         ),
       ),
     );
@@ -71,7 +79,11 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey)),
           Container(
             decoration: BoxDecoration(
               color: val ? Colors.green : Colors.grey.shade300,
@@ -83,7 +95,10 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
               onTap: () => controller.toggleNotification(key),
               child: Text(
                 val ? "ON" : "OFF",
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14),
               ),
             ),
           ),
@@ -117,137 +132,179 @@ class _VendorProfileScreenState extends State<VendorProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF1F5),
-      body: SafeArea(
-        child: Obx(() => controller.isLoading.value
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-          children: [
-            Obx(() => Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 25),
-              decoration: const BoxDecoration(
-                color: Color(0xFF3E3EFF),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
-              ),
-              child: Column(
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      GestureDetector(
-                        onTap: controller.uploadImage,
-                        child: CircleAvatar(
-                          radius: 50,
-                          backgroundImage: controller.profileImage.value != null
-                              ? FileImage(controller.profileImage.value!)
-                              : controller.profileImageUrl.value.isNotEmpty
-                              ? NetworkImage(controller.profileImageUrl.value)
-                              : const AssetImage("assets/images/user.png") as ImageProvider,
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 4,
-                        right: 4,
-                        child: GestureDetector(
+    return WillPopScope(
+      onWillPop: _onBackPressed,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFFFFFF),
+        body: SafeArea(
+          child: Obx(() => controller.isLoading.value
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+            children: [
+              // Profile Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 25),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFAE9797),
+                  borderRadius:
+                  BorderRadius.vertical(bottom: Radius.circular(20)),
+                ),
+                child: Column(
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        GestureDetector(
                           onTap: controller.uploadImage,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black26, blurRadius: 4)
-                              ],
-                            ),
-                            child: const Icon(Icons.edit, size: 18, color: Colors.black),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundImage: controller
+                                .profileImage.value !=
+                                null
+                                ? FileImage(controller.profileImage.value!)
+                                : controller.profileImageUrl.value
+                                .isNotEmpty
+                                ? NetworkImage(controller
+                                .profileImageUrl.value)
+                                : const AssetImage(
+                                "assets/images/user.png")
+                            as ImageProvider,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Obx(() => Text(
-                    controller.userName.value.isEmpty
-                        ? "Your Name"
-                        : controller.userName.value,
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                  )),
+                        Positioned(
+                          bottom: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: controller.uploadImage,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                boxShadow: const [
+                                  BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 4)
+                                ],
+                              ),
+                              child: const Icon(Icons.edit,
+                                  size: 18, color: Colors.black),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      controller.userName.value.isEmpty
+                          ? "Your Name"
+                          : controller.userName.value,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tabs
+              TabBar(
+                controller: _tabController,
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.grey,
+                labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold),
+                indicatorColor: Colors.black,
+                tabs: const [
+                  Tab(text: "Account"),
+                  Tab(text: "Notification"),
+                  Tab(text: "Log Out"),
                 ],
               ),
-            )),
 
-            TabBar(
-              controller: _tabController,
-              labelColor: Colors.black,
-              unselectedLabelColor: Colors.grey,
-              labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-              indicatorColor: Colors.black,
-              tabs: const [
-                Tab(text: "Account"),
-                Tab(text: "Notification"),
-                Tab(text: "Log Out"),
-              ],
-            ),
-
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          _buildTextField("Name", controller.nameController),
-                          _buildTextField("Phone", controller.phoneController),
-                          _buildTextField("Address", controller.addressController, isAddress: true),
-                          _buildTextField("Email", controller.emailController),
-                          _buildTextField("Shop Name", controller.shopNameController),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: controller.updateProfile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3E3EFF),
-                              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+              // Tab Views
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Account Tab
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            _buildTextField(
+                                "Name", controller.nameController),
+                            _buildTextField(
+                                "Phone", controller.phoneController),
+                            _buildTextField("Address",
+                                controller.addressController,
+                                isAddress: true),
+                            _buildTextField(
+                                "Email", controller.emailController),
+                            _buildTextField("Shop Name",
+                                controller.shopNameController),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: controller.updateProfile,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                const Color(0xFF3E3EFF),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 50, vertical: 15),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                    BorderRadius.circular(25)),
+                              ),
+                              child: const Text("Update",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white)),
                             ),
-                            child: const Text("Update", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                          ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Notification Tab
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildNotificationToggle(
+                              "Email Notifications", "email"),
+                          const SizedBox(height: 16),
+                          _buildNotificationToggle(
+                              "In App Notifications", "inApp"),
+                          const SizedBox(height: 16),
+                          _buildNotificationToggle(
+                              "SMS Notifications", "sms"),
                         ],
                       ),
                     ),
-                  ),
 
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildNotificationToggle("Email Notifications", "email"),
-                        const SizedBox(height: 16),
-                        _buildNotificationToggle("In App Notifications", "inApp"),
-                        const SizedBox(height: 16),
-                        _buildNotificationToggle("SMS Notifications", "sms"),
-                      ],
+                    // Logout Tab
+                    Center(
+                      child: ElevatedButton.icon(
+                        onPressed: _showLogoutDialog,
+                        icon: const Icon(Icons.logout),
+                        label: const Text("Log Out"),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white),
+                      ),
                     ),
-                  ),
-
-                  Center(
-                    child: ElevatedButton.icon(
-                      onPressed: _showLogoutDialog,
-                      icon: const Icon(Icons.logout),
-                      label: const Text("Log Out"),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        )),
+            ],
+          )),
+        ),
       ),
     );
   }
 }
+
+

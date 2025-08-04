@@ -71,7 +71,7 @@ class _DeliveryTasksScreenState extends State<DeliveryTasksScreen> {
         return false; // We handle the navigation ourselves
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFFFEBEE),
+        backgroundColor: const Color(0xFFFFFFFF),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,

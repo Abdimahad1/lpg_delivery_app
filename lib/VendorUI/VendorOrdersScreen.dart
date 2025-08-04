@@ -6,6 +6,7 @@ import '../config/api_config.dart';
 import '../controllers/profile_controller.dart';
 import 'OrderDetailScreen.dart';
 import 'package:intl/intl.dart';
+import 'vendor_home_screen.dart';
 
 class VendorOrdersScreen extends StatefulWidget {
   const VendorOrdersScreen({super.key});
@@ -29,6 +30,11 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen>
   late TabController _tabController;
   String selectedFilter = 'All';
   final List<String> filters = ['All', 'Today', 'This Week'];
+
+  Future<bool> _onBackPressed() async {
+    Get.off(() => const VendorHomeScreen());
+    return false; // prevent default pop
+  }
 
   @override
   void initState() {
@@ -75,8 +81,10 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen>
       final res = jsonDecode(response.body);
       if (res['success'] == true && res['data'] != null) {
         allTasks = List<Map<String, dynamic>>.from(res['data']);
-        acceptedTasks = allTasks.where((task) => task['status'] == 'Accepted').toList();
-        deliveredTasks = allTasks.where((task) => task['status'] == 'Delivered').toList();
+        acceptedTasks =
+            allTasks.where((task) => task['status'] == 'Accepted').toList();
+        deliveredTasks =
+            allTasks.where((task) => task['status'] == 'Delivered').toList();
       }
     } catch (e) {
       print("❌ Fetch all tasks error: $e");
@@ -91,12 +99,16 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen>
     List<Map<String, dynamic>> filtered = [];
     if (selectedFilter == 'Today') {
       filtered = allOrders.where((order) {
-        final ts = DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
-        return ts.year == today.year && ts.month == today.month && ts.day == today.day;
+        final ts =
+            DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
+        return ts.year == today.year &&
+            ts.month == today.month &&
+            ts.day == today.day;
       }).toList();
     } else if (selectedFilter == 'This Week') {
       filtered = allOrders.where((order) {
-        final ts = DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
+        final ts =
+            DateTime.tryParse(order['timestamp'] ?? '') ?? DateTime(2000);
         return ts.isAfter(startOfWeek);
       }).toList();
     } else {
@@ -105,7 +117,9 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen>
 
     unassignedOrders = filtered.where((order) {
       final orderId = order['_id'];
-      final assignedStatus = allTasks.firstWhereOrNull((task) => task['orderId'] == orderId)?['status'] ?? '';
+      final assignedStatus = allTasks
+          .firstWhereOrNull((task) => task['orderId'] == orderId)?['status'] ??
+          '';
       return assignedStatus == '' || assignedStatus == 'Pending';
     }).toList();
 
@@ -153,7 +167,8 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen>
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: orders.length,
-        itemBuilder: (context, index) => _buildOrderCard(orders[index]),
+        itemBuilder: (context, index) =>
+            _buildOrderCard(orders[index]),
       ),
     );
   }
@@ -337,47 +352,56 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF3E3EFF),
-        title: const Text("Orders", style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: [
-            Tab(text: "Unassigned (${unassignedOrders.length})"),
-            Tab(text: "Accepted (${acceptedOrders.length})"),
-            Tab(text: "Delivered (${deliveredOrders.length})"),
+    return WillPopScope(
+      onWillPop: () async {
+        Get.back(); // or Navigator.pop(context)
+        return false; // prevent default system back
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F6FA),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF3E3EFF),
+          title: const Text("Orders", style: TextStyle(color: Colors.white)),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Get.back(), // ✅ returns to prev screen
+          ),
+          bottom: TabBar(
+            controller: _tabController,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            indicatorColor: Colors.white,
+            tabs: [
+              Tab(text: "Unassigned (${unassignedOrders.length})"),
+              Tab(text: "Accepted (${acceptedOrders.length})"),
+              Tab(text: "Delivered (${deliveredOrders.length})"),
+            ],
+          ),
+          actions: [
+            IconButton(
+              onPressed: fetchVendorOrders,
+              icon: const Icon(Icons.refresh, color: Colors.white),
+            )
           ],
         ),
-
-        actions: [
-          IconButton(
-            onPressed: fetchVendorOrders,
-            icon: const Icon(Icons.refresh, color: Colors.white),
-          )
-        ],
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-        children: [
-          _buildFilterDropdown(),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                buildTabView(unassignedOrders),
-                buildTabView(acceptedOrders),
-                buildTabView(deliveredOrders),
-              ],
-            ),
-          )
-        ],
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+          children: [
+            _buildFilterDropdown(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  buildTabView(unassignedOrders),
+                  buildTabView(acceptedOrders),
+                  buildTabView(deliveredOrders),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }

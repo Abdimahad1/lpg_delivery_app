@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:iconsax/iconsax.dart';
 import '../config/api_config.dart';
 import '../controllers/profile_controller.dart';
 
@@ -52,13 +53,17 @@ class _CustomerNotificationsScreenState extends State<CustomerNotificationsScree
 
       final res = jsonDecode(response.body);
       if (res['success'] == true && res['data'] != null) {
-        _notifications.value = List<NotificationItem>.from(res['data'].map((n) => NotificationItem(
-          senderName: n['senderName'],
-          message: n['message'],
-          isRead: n['isRead'],
-          id: n['_id'],
-          createdAt: DateTime.parse(n['createdAt']),
-        )));
+        _notifications.value = List<NotificationItem>.from(
+          res['data'].map(
+                (n) => NotificationItem(
+              senderName: n['senderName'],
+              message: n['message'],
+              isRead: n['isRead'],
+              id: n['_id'],
+              createdAt: DateTime.parse(n['createdAt']),
+            ),
+          ),
+        );
       }
     } catch (e) {
       print("❌ Notification Fetch Error: $e");
@@ -67,29 +72,33 @@ class _CustomerNotificationsScreenState extends State<CustomerNotificationsScree
     }
   }
 
+
   void markAllAsRead() async {
     final profileController = Get.find<ProfileController>();
     final token = profileController.authToken;
-    await http.patch(Uri.parse("${baseUrl}notifications/mark-all-read"), headers: {
-      "Authorization": "Bearer $token",
-    });
+    await http.patch(
+      Uri.parse("${baseUrl}notifications/mark-all-read"),
+      headers: {"Authorization": "Bearer $token"},
+    );
     await fetchNotifications();
     Get.find<ProfileController>().fetchNotificationCount();
-
   }
 
   void deleteAll() async {
-    final confirmed = await _showConfirmation("Are you sure you want to delete all notifications?");
+    final confirmed = await _showConfirmationDialog(
+      "Delete All Notifications",
+      "Are you sure you want to delete all notifications?",
+    );
     if (!confirmed) return;
 
     final profileController = Get.find<ProfileController>();
     final token = profileController.authToken;
-    await http.delete(Uri.parse("${baseUrl}notifications/delete-all"), headers: {
-      "Authorization": "Bearer $token",
-    });
+    await http.delete(
+      Uri.parse("${baseUrl}notifications/delete-all"),
+      headers: {"Authorization": "Bearer $token"},
+    );
     await fetchNotifications();
     Get.find<ProfileController>().fetchNotificationCount();
-
   }
 
   void markAsRead(int index) async {
@@ -97,43 +106,52 @@ class _CustomerNotificationsScreenState extends State<CustomerNotificationsScree
     final token = profileController.authToken;
     final id = _notifications[index].id;
 
-    await http.patch(Uri.parse("${baseUrl}notifications/mark-read/$id"), headers: {
-      "Authorization": "Bearer $token",
-    });
+    await http.patch(
+      Uri.parse("${baseUrl}notifications/mark-read/$id"),
+      headers: {"Authorization": "Bearer $token"},
+    );
     await fetchNotifications();
     Get.find<ProfileController>().fetchNotificationCount();
-
   }
 
   void deleteNotification(int index) async {
-    final confirmed = await _showConfirmation("Are you sure you want to delete this notification?");
+    final confirmed = await _showConfirmationDialog(
+      "Delete Notification",
+      "Are you sure you want to delete this notification?",
+    );
     if (!confirmed) return;
 
     final profileController = Get.find<ProfileController>();
     final token = profileController.authToken;
     final id = _notifications[index].id;
 
-    await http.delete(Uri.parse("${baseUrl}notifications/$id"), headers: {
-      "Authorization": "Bearer $token",
-    });
+    await http.delete(
+      Uri.parse("${baseUrl}notifications/$id"),
+      headers: {"Authorization": "Bearer $token"},
+    );
     await fetchNotifications();
     Get.find<ProfileController>().fetchNotificationCount();
-
   }
 
-  Future<bool> _showConfirmation(String message) async {
+  Future<bool> _showConfirmationDialog(String title, String message) async {
     return await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Confirm"),
+        title: Text(title),
         content: Text(message),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Yes")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Confirm", style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
-    ) ??
-        false;
+    ) ?? false;
   }
 
   @override
@@ -143,136 +161,231 @@ class _CustomerNotificationsScreenState extends State<CustomerNotificationsScree
         : _notifications.where((n) => n.isRead == (_filter == 'Read')).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF3E3EFF),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('Notifications', style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Iconsax.filter, color: Colors.black),
+            onSelected: (value) => setState(() => _filter = value),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'All', child: Text('All Notifications')),
+              const PopupMenuItem(value: 'Unread', child: Text('Unread Only')),
+              const PopupMenuItem(value: 'Read', child: Text('Read Only')),
+            ],
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Action Buttons
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Iconsax.tick_circle,
+                    label: 'Mark All Read',
+                    color: const Color(0xFF3E3EFF),
+                    onTap: markAllAsRead,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionButton(
+                    icon: Iconsax.trash,
+                    label: 'Delete All',
+                    color: Colors.red,
+                    onTap: deleteAll,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Notification List
+          Expanded(
+            child: isLoading
+                ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF3E3EFF)),
+              ),
+            )
+                : Obx(() => filtered.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _globalActionButton("Read All", Colors.black, Colors.white, onTap: markAllAsRead),
-                  const SizedBox(width: 8),
-                  _globalActionButton("Filter", Colors.orange, Colors.black, onTap: () => _showFilterDialog()),
-                  const SizedBox(width: 8),
-                  _globalActionButton("Delete All", Colors.red, Colors.white, onTap: deleteAll),
+                  Icon(Iconsax.notification, size: 60, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  Text(
+                    _filter == 'All'
+                        ? "No notifications yet"
+                        : "No ${_filter.toLowerCase()} notifications",
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
-            ),
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Obx(() => ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+            )
+                : RefreshIndicator(
+              onRefresh: fetchNotifications,
+              color: const Color(0xFF3E3EFF),
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 itemCount: filtered.length,
                 itemBuilder: (context, index) {
                   final notification = filtered[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                    ),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          backgroundColor: Colors.deepPurple,
-                          radius: 24,
-                          child: Icon(Icons.notifications, color: Colors.white),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(notification.senderName,
-                                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  if (!notification.isRead)
-                                    const Padding(
-                                      padding: EdgeInsets.only(left: 6),
-                                      child: CircleAvatar(radius: 5, backgroundColor: Colors.red),
-                                    )
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(notification.message,
-                                  style: const TextStyle(fontSize: 13, color: Colors.black87)),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('MMM d, h:mm a').format(notification.createdAt),
-                                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  _actionButton("Delete", Colors.red, () => deleteNotification(index)),
-                                  const SizedBox(width: 8),
-                                  if (!notification.isRead)
-                                    _actionButton("Mark Read", Colors.green, () => markAsRead(index)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return _buildNotificationCard(notification, index);
                 },
-              )),
+              ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(title: const Text("All"), onTap: () => _setFilter("All")),
-          ListTile(title: const Text("Unread"), onTap: () => _setFilter("Unread")),
-          ListTile(title: const Text("Read"), onTap: () => _setFilter("Read")),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  void _setFilter(String value) {
-    setState(() => _filter = value);
-    Navigator.pop(context);
-  }
-
-  Widget _actionButton(String label, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(20),
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
-        child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
-  Widget _globalActionButton(String label, Color bg, Color text, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(20),
+  Widget _buildNotificationCard(NotificationItem notification, int index) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: notification.isRead ? Colors.grey[50] : Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => markAsRead(index),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3E3EFF).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Iconsax.notification,
+                      color: const Color(0xFF3E3EFF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              notification.senderName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            if (!notification.isRead)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          notification.message,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              DateFormat('MMM d, h:mm a').format(notification.createdAt),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: Icon(
+                                Iconsax.trash,
+                                size: 18,
+                                color: Colors.grey[600],
+                              ),
+                              onPressed: () => deleteNotification(index),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        child: Text(label, style: TextStyle(color: text, fontWeight: FontWeight.bold)),
       ),
     );
   }

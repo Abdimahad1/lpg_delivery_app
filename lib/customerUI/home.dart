@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart' as latlng;
+import 'package:iconsax/iconsax.dart';
 import '../config/api_config.dart';
 import '../controllers/cart_controller.dart';
 import '../controllers/profile_controller.dart';
@@ -26,6 +26,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   List<Map<String, dynamic>> _randomProducts = [];
   bool _isLoading = true;
+  bool _showSearchResults = false;
+  List<Map<String, dynamic>> _searchResults = [];
 
   @override
   void initState() {
@@ -60,146 +62,168 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     }
   }
 
+  Future<void> _searchProducts(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _showSearchResults = false;
+        _searchResults.clear();
+      });
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${baseUrl}products/search?query=$query'),
+        headers: {'Authorization': 'Bearer ${profileController.authToken}'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _searchResults = List<Map<String, dynamic>>.from(data['data']);
+          _showSearchResults = true;
+        });
+      }
+    } catch (e) {
+      print('Error searching products: $e');
+    }
+  }
+
   void _onSearchChanged() {
-    // Implement search functionality if needed
+    _searchProducts(_searchController.text);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF1F5),
+      backgroundColor: Colors.white,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: [
           // Search Bar
-          Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: Colors.grey),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration.collapsed(
-                      hintText: "Search gas products and vendors...",
-                      hintStyle: TextStyle(color: Colors.grey),
-                    ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
                   ),
-                ),
-                if (_searchController.text.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 20),
-                    onPressed: () {
-                      _searchController.clear();
-                    },
-                  ),
-              ],
+                ],
+              ),
+
             ),
           ),
 
-          const SizedBox(height: 16),
-
           // Main Content
           Expanded(
-            child: Container(
+            child: _showSearchResults
+                ? _buildSearchResults()
+                : SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionHeader("Quick Actions", ""),
+                  const SizedBox(height: 12),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 1.2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
                     children: [
-                      _buildSectionHeader("Getting Started Today", ""),
-                      const SizedBox(height: 12),
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 1.0,  // Square cards
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        children: [
-                          QuickActionCard(
-                            icon: Icons.propane_tank,
-                            label: "Buy Cooking Gas",
-                            onTap: () => widget.onTabSelected?.call(1),
-                          ),
-                          QuickActionCard(
-                            icon: Icons.location_on,
-                            label: "Locate Vendors",
-                            onTap: () {
-                              Get.to(() => SearchVendorsScreen());
-                            },
-                          ),
-                          QuickActionCard(
-                            icon: Icons.history,
-                            label: "Transaction History",
-                            onTap: () {
-                              Get.to(() =>TransactionHistoryScreen());
-                            },
-                          ),
-
-                          QuickActionCard(
-                            icon: Icons.person,
-                            label: "My profile",
-                            onTap: () => widget.onTabSelected?.call(4),
-                          ),
-                        ],
+                      QuickActionCard(
+                        icon: Iconsax.gas_station,
+                        label: "Buy Cooking Gas",
+                        color: const Color(0xFF3E3EFF),
+                        onTap: () => widget.onTabSelected?.call(1),
                       ),
-                      const SizedBox(height: 25),
-                      _buildSectionHeader("Products", ""),
-                      const SizedBox(height: 12),
-                      _randomProducts.isEmpty
-                          ? const Center(
-                        child: Text("No products found",
-                            style: TextStyle(color: Colors.grey)),
-                      )
-                          : ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _randomProducts.length,
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final product = _randomProducts[index];
-                          return ProductCard(
-                            title: product['name'],
-                            description: product['description'] ?? 'No description',
-                            vendorName: product['vendorName'] ?? 'Unknown Vendor',
-                            location: product['vendorAddress'] ?? '',
-                            price: product['price']?.toDouble() ?? 0.0,
-                            imagePath: product['image'] ?? 'assets/images/cylinder.png',
-                            productId: product['_id'],
-                            vendorId: product['vendorId'],
-                            onTap: () {
-                              Get.to(() => ProductDetailScreen(
-                                title: product['name'],
-                                price: product['price']?.toDouble() ?? 0.0,
-                                location: product['vendorAddress'] ?? '',
-                                description: product['description'] ?? 'No description',
-                                imagePath: product['image'] ?? 'assets/images/cylinder.png',
-                                vendorName: product['vendorName'] ?? 'Unknown Vendor',
-                                productId: product['_id'],
-                                vendorId: product['vendorId'],
-                                vendorPhone: product['vendorPhone'],
-                              ));
-
-                            },
-                          );
+                      QuickActionCard(
+                        icon: Iconsax.location,
+                        label: "Locate Vendors",
+                        color: Colors.orange,
+                        onTap: () {
+                          Get.to(() => SearchVendorsScreen());
                         },
+                      ),
+                      QuickActionCard(
+                        icon: Iconsax.receipt,
+                        label: "Transaction History",
+                        color: Colors.green,
+                        onTap: () {
+                          Get.to(() => TransactionHistoryScreen());
+                        },
+                      ),
+                      QuickActionCard(
+                        icon: Iconsax.profile_circle,
+                        label: "My Profile",
+                        color: Colors.purple,
+                        onTap: () => widget.onTabSelected?.call(4),
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 25),
+                  _buildSectionHeader("Featured Products", " "),
+                  _randomProducts.isEmpty
+                      ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        "No products available",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  )
+                      : ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _randomProducts.length,
+                    separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final product = _randomProducts[index];
+                      return ProductCard(
+                        title: product['name'],
+                        description:
+                        product['description'] ?? 'No description',
+                        vendorName:
+                        product['vendorName'] ?? 'Unknown Vendor',
+                        location:
+                        product['vendorAddress'] ?? '',
+                        price: product['price']?.toDouble() ?? 0.0,
+                        imagePath:
+                        product['image'] ?? 'assets/images/cylinder.png',
+                        productId: product['_id'],
+                        vendorId: product['vendorId'],
+                        onTap: () {
+                          Get.to(() => ProductDetailScreen(
+                            title: product['name'],
+                            price: product['price']?.toDouble() ?? 0.0,
+                            location:
+                            product['vendorAddress'] ?? '',
+                            description: product['description'] ??
+                                'No description',
+                            imagePath: product['image'] ??
+                                'assets/images/cylinder.png',
+                            vendorName: product['vendorName'] ??
+                                'Unknown Vendor',
+                            productId: product['_id'],
+                            vendorId: product['vendorId'],
+                            vendorPhone: product['vendorPhone'],
+                          ));
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
           ),
@@ -208,97 +232,70 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
+  Widget _buildSearchResults() {
+    if (_searchResults.isEmpty && _searchController.text.isNotEmpty) {
+      return const Center(
+        child: Text("No results found", style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: _searchResults.length,
+      itemBuilder: (context, index) {
+        final product = _searchResults[index];
+        return ProductCard(
+          title: product['name'],
+          description: product['description'] ?? 'No description',
+          vendorName: product['vendorName'] ?? 'Unknown Vendor',
+          location: product['vendorAddress'] ?? '',
+          price: product['price']?.toDouble() ?? 0.0,
+          imagePath: product['image'] ?? 'assets/images/cylinder.png',
+          productId: product['_id'],
+          vendorId: product['vendorId'],
+          onTap: () {
+            Get.to(() => ProductDetailScreen(
+              title: product['name'],
+              price: product['price']?.toDouble() ?? 0.0,
+              location: product['vendorAddress'] ?? '',
+              description: product['description'] ?? 'No description',
+              imagePath: product['image'] ?? 'assets/images/cylinder.png',
+              vendorName: product['vendorName'] ?? 'Unknown Vendor',
+              productId: product['_id'],
+              vendorId: product['vendorId'],
+              vendorPhone: product['vendorPhone'],
+            ));
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildSectionHeader(String title, String action) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.black87,
+          ),
+        ),
         if (action.isNotEmpty)
-          Text(action, style: const TextStyle(color: Colors.blueAccent, fontSize: 14)),
+          TextButton(
+            onPressed: () {},
+            child: Text(
+              action,
+              style: const TextStyle(
+                color: Color(0xFF3E3EFF),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
       ],
-    );
-  }
-
-  Widget _buildErrorImage() {
-    return Container(
-      width: 60,
-      height: 60,
-      color: Colors.grey[200],
-      child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
-    );
-  }
-}
-
-class VendorCard extends StatelessWidget {
-  final String name;
-  final String imagePath;
-  final String location;
-  final String vendorId;
-
-  const VendorCard({
-    super.key,
-    required this.name,
-    required this.imagePath,
-    required this.location,
-    required this.vendorId,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to vendor details screen if needed
-      },
-      child: Container(
-        width: 150,  // Fixed width
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: imagePath.startsWith('http')
-                  ? NetworkImage(imagePath)
-                  : AssetImage(imagePath) as ImageProvider,
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.location_pin, size: 16, color: Colors.red),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      location,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -306,12 +303,14 @@ class VendorCard extends StatelessWidget {
 class QuickActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback? onTap;
 
   const QuickActionCard({
     super.key,
     required this.icon,
     required this.label,
+    required this.color,
     this.onTap,
   });
 
@@ -320,24 +319,36 @@ class QuickActionCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        constraints: const BoxConstraints(
-          minWidth: 100,
-          minHeight: 100,
-        ),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 5)],
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.red, size: 35),
-            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(height: 12),
             Text(
               label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -360,7 +371,7 @@ class ProductCard extends StatelessWidget {
   final String vendorId;
   final VoidCallback? onTap;
 
-  ProductCard({
+  const ProductCard({
     super.key,
     required this.title,
     required this.description,
@@ -378,57 +389,95 @@ class ProductCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
               child: _buildProductImage(imagePath),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(vendorName,
-                      style: const TextStyle(fontSize: 12, color: Colors.blue)),
-                  if (description.isNotEmpty)
-                    Text(description,
-                        style: const TextStyle(fontSize: 12),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_pin, size: 14, color: Colors.red),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          location,
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Price: \$${price < 0.01 ? price.toStringAsFixed(3) : price.toStringAsFixed(2)}',
-                      style: const TextStyle(fontSize: 13, color: Colors.green, fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      vendorName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    if (description.isNotEmpty)
+                      Text(
+                        description,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Iconsax.location, size: 14, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            location,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '\$${price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-
             ),
           ],
         ),
@@ -441,24 +490,24 @@ class ProductCard extends StatelessWidget {
       if (imagePath.startsWith('http')) {
         return Image.network(
           imagePath,
-          width: 60,
-          height: 60,
+          width: 100,
+          height: 120,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
         );
       } else if (imagePath.startsWith('data:image')) {
         return Image.memory(
           base64.decode(imagePath.split(',').last),
-          width: 60,
-          height: 60,
+          width: 100,
+          height: 120,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
         );
       } else if (imagePath.isNotEmpty) {
         return Image.asset(
           imagePath,
-          width: 60,
-          height: 60,
+          width: 100,
+          height: 120,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) => _buildErrorImage(),
         );
@@ -471,10 +520,12 @@ class ProductCard extends StatelessWidget {
 
   Widget _buildErrorImage() {
     return Container(
-      width: 60,
-      height: 60,
-      color: Colors.grey[200],
-      child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+      width: 100,
+      height: 120,
+      color: Colors.grey[100],
+      child: Center(
+        child: Icon(Iconsax.gas_station, size: 40, color: Colors.grey[400]),
+      ),
     );
   }
 }

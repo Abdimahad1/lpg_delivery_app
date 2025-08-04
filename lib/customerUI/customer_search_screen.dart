@@ -114,17 +114,24 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFFF1F5),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildFilters(),
-          Expanded(child: _buildProductList()),
-        ],
+    return WillPopScope(
+      onWillPop: () async {
+        Get.back(); // Navigate to previous screen
+        return false; // Prevent default pop
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFDFDFD),
+        body: Column(
+          children: [
+            _buildSearchBar(),
+            _buildFilters(),
+            Expanded(child: _buildProductList()),
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _buildSearchBar() {
     return Container(
@@ -232,15 +239,15 @@ class _CustomerSearchScreenState extends State<CustomerSearchScreen> {
         borderRadius: BorderRadius.circular(15),
         onTap: () {
           Get.to(() => ProductDetailScreen(
-            title: product['title'],
-            price: product['price'],
-            location: product['location'],
-            description: product['description'],
-            imagePath: product['imagePath'],
-            vendorName: product['vendorName'],
-            productId: product['productId'],
-            vendorId: product['vendorId'],
-            vendorPhone:product['vendorPhone']
+              title: product['title'],
+              price: product['price'],
+              location: product['location'],
+              description: product['description'],
+              imagePath: product['imagePath'],
+              vendorName: product['vendorName'],
+              productId: product['productId'],
+              vendorId: product['vendorId'],
+              vendorPhone:product['vendorPhone']
           ));
         },
         child: Padding(

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../config/api_config.dart';
 import '../controllers/profile_controller.dart';
 
@@ -144,39 +145,177 @@ class _AssignDeliveryScreenState extends State<AssignDeliveryScreen> {
         body: jsonEncode(payload),
       );
 
+      final responseData = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
+        // Success case
         await fetchAllAssignedTasks();
         applyFilters();
 
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Assigned!"),
-            content: Text("✅ Successfully assigned to ${person['name']}"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("OK", style: TextStyle(color: Color(0xFF3E3EFF))),
-              ),
-            ],
-          ),
+        Get.back(); // Close the assignment screen
+        Get.snackbar(
+          "Assignment Successful",
+          "Order assigned to ${person['name']}",
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: Duration(seconds: 3),
         );
       } else {
-        showError("Failed to assign task: ${response.body}");
+        // Handle specific error cases
+        final errorCode = responseData['code'] ?? 'UNKNOWN_ERROR';
+        final errorMsg = responseData['message'] ?? 'Failed to assign task';
+
+        if (errorCode == "ORDER_ALREADY_ASSIGNED") {
+          final assignedToId = responseData['data']?['assignedTo'];
+          final assignedAt = responseData['data']?['assignedAt'];
+
+          // Get the name of the delivery person who has the assignment
+          String assignedToName = "another delivery person";
+          try {
+            final assignedPerson = deliveryPeople.firstWhere(
+                    (p) => p['userId'] == assignedToId,
+                orElse: () => {'name': 'another delivery person'}
+            );
+            assignedToName = assignedPerson['name'];
+          } catch (e) {
+            debugPrint("Error finding delivery person: $e");
+          }
+
+          await showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text("Order Already Assigned"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.orange, size: 50),
+                  SizedBox(height: 16),
+                  Text(
+                    "This order is already assigned to:\n$assignedToName",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  if (assignedAt != null)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        "Assigned on: ${DateFormat('MMM dd, hh:mm a').format(DateTime.parse(assignedAt))}",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("OK"),
+                ),
+              ],
+            ),
+          );
+        }
+        else if (errorCode == "DUPLICATE_ORDER") {
+          Get.snackbar(
+            "Already Assigned",
+            "This order is already assigned to this delivery person",
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          );
+        }
+        else if (errorCode == "HAS_ACTIVE_TASKS") {
+          final activeTasks = responseData['data']?['activeTasks'] ?? [];
+          final busyWith = activeTasks.isNotEmpty
+              ? activeTasks.map((t) => t['product']?.toString() ?? 'unknown').join(', ')
+              : 'other tasks';
+
+          Get.snackbar(
+            "Delivery Person Busy",
+            "${person['name']} is currently handling: $busyWith",
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          );
+        }
+        else {
+          // Generic error handling
+          Get.snackbar(
+            "Assignment Failed",
+            errorMsg,
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          );
+        }
+
+        // Refresh data in case of stale state
+        await fetchAllAssignedTasks();
+        applyFilters();
       }
     } catch (e) {
-      showError("❌ Assign failed: $e");
+      Get.snackbar(
+        "Error",
+        "Failed to assign: ${e.toString()}",
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 3),
+      );
+      debugPrint("Assignment error: ${e.toString()}");
     }
   }
 
-  void showError(String msg) {
-    Get.snackbar("Error", msg, backgroundColor: Colors.red[100], colorText: Colors.black);
+// Helper method to show active tasks details
+  void showActiveTasksDialog(List<dynamic> tasks, String deliveryName) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("$deliveryName's Active Tasks"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: tasks.length,
+            itemBuilder: (ctx, index) {
+              final task = tasks[index];
+              return ListTile(
+                leading: const Icon(Icons.delivery_dining),
+                title: Text(task['product']?.toString() ?? 'Unknown product'),
+                subtitle: Text("Status: ${task['status']}"),
+                trailing: Text(
+                  task['assignedAt'] != null
+                      ? DateFormat('MMM dd, hh:mm a').format(
+                      DateTime.parse(task['assignedAt']))
+                      : '',
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
   }
+
+// Updated showError method
+  void showError(String msg) {
+    Get.snackbar(
+      "Error",
+      msg,
+      backgroundColor: Colors.red[100],
+      colorText: Colors.black,
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 5),
+      icon: const Icon(Icons.error_outline, color: Colors.red),
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDECEC),
+      backgroundColor: const Color(0xFFF8F0F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFF3E3EFF),
         title: const Text('Assign Delivery Person'),

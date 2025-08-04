@@ -169,7 +169,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         : 'No Date';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F2F2),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
         title: const Text("Order Detail"),
         backgroundColor: const Color(0xFF3E3EFF),

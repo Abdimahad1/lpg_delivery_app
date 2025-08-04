@@ -10,10 +10,12 @@ class VendorDeliveryStatusScreen extends StatefulWidget {
   const VendorDeliveryStatusScreen({super.key});
 
   @override
-  State<VendorDeliveryStatusScreen> createState() => _VendorDeliveryStatusScreenState();
+  State<VendorDeliveryStatusScreen> createState() =>
+      _VendorDeliveryStatusScreenState();
 }
 
-class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen> {
+class _VendorDeliveryStatusScreenState
+    extends State<VendorDeliveryStatusScreen> {
   bool isLoading = true;
   List<Map<String, dynamic>> allTasks = [];
   List<Map<String, dynamic>> filteredTasks = [];
@@ -24,6 +26,11 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
   void initState() {
     super.initState();
     fetchTasks();
+  }
+
+  Future<bool> _onBackPressed() async {
+    Get.back(); // Return to previous screen
+    return false; // Prevent default back action
   }
 
   Future<void> fetchTasks() async {
@@ -58,7 +65,7 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
             "product": task['product'] ?? '',
             "name": deliveryNames[task['deliveryPersonId']] ?? "Unknown",
             "status": _mapStatus(task['status']),
-            "createdAt": task['createdAt'], // ISO string
+            "createdAt": task['createdAt'],
           };
         }).toList();
 
@@ -104,7 +111,8 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
     }
   }
 
-  String _generateReference(int index) => 'ORD-${(index + 1).toString().padLeft(4, '0')}';
+  String _generateReference(int index) =>
+      'ORD-${(index + 1).toString().padLeft(4, '0')}';
 
   Widget _buildStatusDot(String status) {
     final color = {
@@ -119,7 +127,9 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
       children: [
         Icon(Icons.circle, color: color, size: 14),
         const SizedBox(width: 4),
-        Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        Text(status,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -138,17 +148,22 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+            boxShadow: [
+              BoxShadow(color: Colors.black12, blurRadius: 4)
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Image.asset('assets/images/cylinder.png', width: 30, height: 30),
+                  Image.asset('assets/images/cylinder.png',
+                      width: 30, height: 30),
                   const SizedBox(width: 10),
                   Text(task['product'],
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 10),
@@ -157,9 +172,11 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Image.asset('assets/images/bike.png', width: 26, height: 26),
+                  Image.asset('assets/images/bike.png',
+                      width: 26, height: 26),
                   const SizedBox(width: 8),
-                  const Text("Assigned To:", style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text("Assigned To:",
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(width: 6),
                   Text(task['name']),
                 ],
@@ -214,14 +231,17 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+            boxShadow: [
+              BoxShadow(color: Colors.black12, blurRadius: 4)
+            ],
           ),
           child: Row(
             children: [
               CircleAvatar(
                 radius: 26,
                 backgroundColor: Colors.blueAccent,
-                child: Text(entry.key[0], style: const TextStyle(color: Colors.white)),
+                child: Text(entry.key[0],
+                    style: const TextStyle(color: Colors.white)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -229,7 +249,9 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(entry.key,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16)),
                     const SizedBox(height: 4),
                     Text("${entry.value} Deliveries"),
                     const SizedBox(height: 4),
@@ -237,7 +259,6 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
                   ],
                 ),
               ),
-              SizedBox.shrink(), // or just remove the line
             ],
           ),
         );
@@ -247,56 +268,64 @@ class _VendorDeliveryStatusScreenState extends State<VendorDeliveryStatusScreen>
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFFFE5EC),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF3E3EFF),
-          foregroundColor: Colors.white,
-          centerTitle: true,
-          title: const Text("Delivery & Personal Status"),
-          bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(text: "Delivery Status"),
-              Tab(text: "Personal Status"),
+    return WillPopScope(
+      onWillPop: _onBackPressed,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFFFE5EC),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF3E3EFF),
+            foregroundColor: Colors.white,
+            centerTitle: true,
+            title: const Text("Delivery & Personal Status"),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Get.back(), // ✅ return to previous screen
+            ),
+            bottom: const TabBar(
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white70,
+              indicatorColor: Colors.white,
+              tabs: [
+                Tab(text: "Delivery Status"),
+                Tab(text: "Personal Status"),
+              ],
+            ),
+          ),
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: DropdownButton<String>(
+                  value: selectedFilter,
+                  isExpanded: true,
+                  items: filters
+                      .map((f) => DropdownMenuItem(
+                      value: f, child: Text("Filter: $f")))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        selectedFilter = val;
+                        applyFilter();
+                      });
+                    }
+                  },
+                ),
+              ),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : TabBarView(
+                  children: [
+                    buildDeliveryTab(),
+                    buildPersonalTab(),
+                  ],
+                ),
+              ),
             ],
           ),
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: DropdownButton<String>(
-                value: selectedFilter,
-                isExpanded: true,
-                items: filters
-                    .map((f) => DropdownMenuItem(value: f, child: Text("Filter: $f")))
-                    .toList(),
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      selectedFilter = val;
-                      applyFilter();
-                    });
-                  }
-                },
-              ),
-            ),
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : TabBarView(
-                children: [
-                  buildDeliveryTab(),
-                  buildPersonalTab(),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

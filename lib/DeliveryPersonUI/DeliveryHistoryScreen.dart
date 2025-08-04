@@ -25,6 +25,12 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen>
     fetchMyTasks();
   }
 
+  /// Back button handler — physical phone button
+  Future<bool> _onBackPressed() async {
+    Get.back();
+    return false; // Prevent default pop
+  }
+
   Future<void> fetchMyTasks() async {
     setState(() => isLoading = true);
     try {
@@ -138,32 +144,39 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        title: const Text('Task History', style: TextStyle(color: Colors.black)),
-        centerTitle: true,
-        elevation: 1,
-        bottom: TabBar(
+    return WillPopScope(
+      onWillPop: _onBackPressed,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF9F9F9),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: () => Get.back(), // UI back arrow goes back instantly
+          ),
+          title: const Text('Task History', style: TextStyle(color: Colors.black)),
+          centerTitle: true,
+          elevation: 1,
+          bottom: TabBar(
+            controller: _tabController,
+            labelColor: Colors.deepPurple,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.deepPurple,
+            tabs: const [
+              Tab(text: 'Delivered'),
+              Tab(text: 'Cancelled'),
+            ],
+          ),
+        ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : TabBarView(
           controller: _tabController,
-          labelColor: Colors.deepPurple,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.deepPurple,
-          tabs: const [
-            Tab(text: 'Delivered'),
-            Tab(text: 'Cancelled'),
+          children: [
+            _buildTaskList(_getFilteredTasks('Delivered')),
+            _buildTaskList(_getFilteredTasks('Rejected')),
           ],
         ),
-      ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-        controller: _tabController,
-        children: [
-          _buildTaskList(_getFilteredTasks('Delivered')),
-          _buildTaskList(_getFilteredTasks('Rejected')),
-        ],
       ),
     );
   }
